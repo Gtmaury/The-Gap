@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { propsForChunk } from "./scenery.js"
+import { ROUTE_HALF, routeCenter, routeClearance, solidRadius } from "./route.js"
 import { field, places } from "./stages.js"
 
 const first = propsForChunk(field, 0)
@@ -42,6 +43,20 @@ const snowPines = first.filter((prop) => prop.kind === "pine")
 assert.ok(forestPines.length > snowPines.length)
 assert.equal(propsForChunk(forest, 0).some((prop) => prop.kind === "rock"), false)
 assert.ok(propsForChunk(rock, 0).some((prop) => prop.kind === "rock"))
+assert.equal(routeCenter(field.start.z), 0)
+assert.ok(Math.abs(routeCenter(40) - routeCenter(40 + 180)) < 1e-6)
+for (const place of places) {
+  for (const prop of propsForChunk(place, 0)) {
+    const gap = Math.abs(prop.x - routeCenter(prop.z))
+    assert.ok(gap >= ROUTE_HALF + solidRadius(prop.kind) + 0.5, `${place.id} ${gap}`)
+  }
+}
+const routeSource = readFileSync(new URL("./route.js", import.meta.url), "utf8")
+const render = readFileSync(new URL("./render.js", import.meta.url), "utf8")
+assert.equal(routeSource.includes("0.62, 0.48, 0.28"), true)
+assert.equal(render.includes("buildRoute"), true)
+assert.equal(render.includes("ROUTE_COLOR"), true)
+assert.equal(routeClearance("pine") > routeClearance("rock"), true)
 
 const sim = readFileSync(new URL("./sim.js", import.meta.url), "utf8")
 assert.equal(sim.includes("scenery"), false)

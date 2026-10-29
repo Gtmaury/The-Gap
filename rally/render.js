@@ -1,4 +1,5 @@
 import { propsForChunk } from "./scenery.js"
+import { ROUTE_COLOR, ROUTE_HALF, routeCenter } from "./route.js"
 import { forward, gradeAlong, terrainHeight } from "./sim.js"
 
 const VERTEX = `
@@ -62,13 +63,13 @@ export function viewPose(car) {
   return {
     eye: {
       x: car.x,
-      y: car.y + 29,
-      z: car.z - 46,
+      y: car.y + 43,
+      z: car.z - 47,
     },
     look: {
       x: car.x,
       y: car.y + 0.5,
-      z: car.z + 24,
+      z: car.z + 16,
     },
   }
 }
@@ -346,6 +347,31 @@ function buildTerrain(field, index) {
   return new Float32Array(data)
 }
 
+function buildRoute(field, index) {
+  const cells = 40
+  const bounds = boundsOf(field)
+  const span = bounds.maxZ - bounds.minZ
+  const zBase = bounds.minZ + span * index
+  const dz = span / cells
+  const data = []
+  for (let iz = 0; iz < cells; iz++) {
+    const z0 = zBase + iz * dz
+    const z1 = z0 + dz
+    const left0 = routeCenter(z0) - ROUTE_HALF
+    const right0 = routeCenter(z0) + ROUTE_HALF
+    const left1 = routeCenter(z1) - ROUTE_HALF
+    const right1 = routeCenter(z1) + ROUTE_HALF
+    const y = (x, z) => terrainHeight(field, x, z) + 0.05
+    const a = [left0, y(left0, z0), z0]
+    const b = [left1, y(left1, z1), z1]
+    const c = [right1, y(right1, z1), z1]
+    const d = [right0, y(right0, z0), z0]
+    pushTri(data, a, b, c, ROUTE_COLOR)
+    pushTri(data, a, c, d, ROUTE_COLOR)
+  }
+  return new Float32Array(data)
+}
+
 function addCone(data, x, z, height, radius, color, field) {
   const y = terrainHeight(field, x, z)
   const sides = 6
@@ -532,6 +558,7 @@ export function createView(canvas, gl) {
         staticMeshes = []
         for (const index of indexes) {
           staticMeshes.push(upload(gl, buildTerrain(activeField, index)))
+          staticMeshes.push(upload(gl, buildRoute(activeField, index)))
           staticMeshes.push(upload(gl, buildScenery(activeField, index)))
         }
         chunkKey = key

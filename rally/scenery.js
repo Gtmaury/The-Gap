@@ -1,3 +1,5 @@
+import { routeClearance, routeCenter } from "./route.js"
+
 const CLEARANCE = 10
 
 function hash(n) {
@@ -30,9 +32,9 @@ export function propsForChunk(field, index) {
       const jitter = hash(seed + index * 10007 + ix * 131 + iz * 977)
       const x = field.minX + ((ix + ((jitter & 255) / 255) * 0.85) / columns) * width
       const z = z0 + ((iz + (((jitter >>> 8) & 255) / 255) * 0.85) / rows) * depth
-      if (Math.hypot(x - field.start.x, z - field.start.z) >= CLEARANCE) {
-        spots.push({ x, z, jitter })
-      }
+      const offStart = Math.hypot(x - field.start.x, z - field.start.z) >= CLEARANCE
+      const offRoute = Math.abs(x - routeCenter(z)) >= routeClearance(field.kind)
+      if (offStart && offRoute) spots.push({ x, z, jitter })
     }
   }
   spots.sort((a, b) => a.jitter - b.jitter || a.x - b.x || a.z - b.z)
