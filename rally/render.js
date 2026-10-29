@@ -3,11 +3,17 @@ import { forward, terrainHeight } from "./sim.js"
 
 const VERTEX = `
 attribute vec3 aPos;
+attribute vec3 aNormal;
 attribute vec3 aColor;
+attribute float aShade;
 uniform mat4 uViewProj;
 varying vec3 vColor;
+varying vec3 vNormal;
+varying float vShade;
 void main() {
   vColor = aColor;
+  vNormal = aNormal;
+  vShade = aShade;
   gl_Position = uViewProj * vec4(aPos, 1.0);
 }
 `
@@ -15,10 +21,16 @@ void main() {
 const FRAGMENT = `
 precision mediump float;
 varying vec3 vColor;
+varying vec3 vNormal;
+varying float vShade;
 void main() {
-  gl_FragColor = vec4(vColor, 1.0);
+  vec3 light = normalize(vec3(0.15, 0.90, -0.35));
+  float lit = 0.42 + 0.70 * max(dot(normalize(vNormal), light), 0.0);
+  gl_FragColor = vec4(vColor * mix(1.0, lit, vShade), 1.0);
 }
 `
+
+const STRIDE = 10
 
 const GROUND = [0.78, 0.78, 0.8]
 const PINE = [0.22, 0.22, 0.24]
@@ -31,13 +43,13 @@ export function viewPose(car) {
   return {
     eye: {
       x: car.x,
-      y: car.y + 28,
-      z: car.z - 18,
+      y: car.y + 56,
+      z: car.z - 36,
     },
     look: {
       x: car.x,
       y: car.y + 0.5,
-      z: car.z + 4,
+      z: car.z + 8,
     },
   }
 }
@@ -62,6 +74,19 @@ export function projectPoint(car, aspect, world) {
 
 export function projectCar(car, aspect) {
   return projectPoint(car, aspect, { x: car.x, y: car.y + 1, z: car.z })
+}
+
+function unit(x, y, z) {
+  const len = Math.hypot(x, y, z) || 1
+  return [x / len, y / len, z / len]
+}
+
+const LIGHT = unit(0.15, 0.9, -0.35)
+
+export function lightFactor(normal) {
+  const n = unit(normal[0], normal[1], normal[2])
+  const dot = Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2])
+  return 0.42 + 0.7 * dot
 }
 
 function multiply(a, b) {
@@ -118,13 +143,31 @@ function lookAt(eye, center, up) {
   ]
 }
 
-function pushVertex(target, x, y, z, color) {
-  target.push(x, y, z, color[0], color[1], color[2])
+function faceNormal(a, b, c) {
+  const ux = b[0] - a[0]
+  const uy = b[1] - a[1]
+  const uz = b[2] - a[2]
+  const vx = c[0] - a[0]
+  const vy = c[1] - a[1]
+  const vz = c[2] - a[2]
+  return unit(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx)
 }
 
-function addFace(target, corners, color) {
+function pushVertex(target, x, y, z, color, normal, shade = 1) {
+  target.push(x, y, z, normal[0], normal[1], normal[2], color[0], color[1], color[2], shade)
+}
+
+function pushTri(target, a, b, c, color, shade = 1) {
+  const normal = faceNormal(a, b, c)
+  pushVertex(target, a[0], a[1], a[2], color, normal, shade)
+  pushVertex(target, b[0], b[1], b[2], color, normal, shade)
+  pushVertex(target, c[0], c[1], c[2], color, normal, shade)
+}
+
+function addFace(target, corners, color, shade = 1) {
   const [a, b, c, d] = corners
-  for (const point of [a, b, c, a, c, d]) pushVertex(target, point[0], point[1], point[2], color)
+  pushTri(target, a, b, c, color, shade)
+  pushTri(target, a, c, d, color, shade)
 }
 
 function addBox(target, min, max, color) {
@@ -132,10 +175,10 @@ function addBox(target, min, max, color) {
   const [x1, y1, z1] = max
   addFace(target, [[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]], color)
   addFace(target, [[x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [x0, y0, z0]], color)
-  addFace(target, [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], color)
-  addFace(target, [[x0, y0, z1], [x1, y0, z1], [x1, y0, z0], [x0, y0, z0]], color)
-  addFace(target, [[x0, y0, z1], [x0, y1, z1], [x1, y1, z1], [x1, y0, z1]], color)
-  addFace(target, [[x1, y0, z0], [x1, y1, z0], [x0, y1, z0], [x0, y0, z0]], color)
+  addFace(target, [[x0, y1, z0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0]], color)
+  addFace(target, [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], color)
+  addFace(target, [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], color)
+  addFace(target, [[x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [x1, y0, z0]], color)
 }
 
 function addPrism(target, x, y, z, radius, halfLength, color) {
@@ -155,22 +198,24 @@ function addPrism(target, x, y, z, radius, halfLength, color) {
       target,
       [
         [x - halfLength, y0, z0],
-        [x + halfLength, y0, z0],
-        [x + halfLength, y1, z1],
         [x - halfLength, y1, z1],
+        [x + halfLength, y1, z1],
+        [x + halfLength, y0, z0],
       ],
       color,
     )
   }
-  const cap = (end) => {
+  const cap = (end, flip) => {
     for (let i = 1; i < sides - 1; i++) {
-      pushVertex(target, end, ring[0][0], ring[0][1], color)
-      pushVertex(target, end, ring[i][0], ring[i][1], color)
-      pushVertex(target, end, ring[i + 1][0], ring[i + 1][1], color)
+      const p0 = [end, ring[0][0], ring[0][1]]
+      const p1 = [end, ring[i][0], ring[i][1]]
+      const p2 = [end, ring[i + 1][0], ring[i + 1][1]]
+      if (flip) pushTri(target, p0, p2, p1, color)
+      else pushTri(target, p0, p1, p2, color)
     }
   }
-  cap(x - halfLength)
-  cap(x + halfLength)
+  cap(x - halfLength, true)
+  cap(x + halfLength, false)
 }
 
 function transformPoint(point, car) {
@@ -186,9 +231,26 @@ function transformPoint(point, car) {
 
 function transformMesh(local, car) {
   const world = []
-  for (let i = 0; i < local.length; i += 6) {
+  const face = forward(car.heading)
+  const rightX = face.z
+  const rightZ = -face.x
+  for (let i = 0; i < local.length; i += STRIDE) {
     const point = transformPoint([local[i], local[i + 1], local[i + 2]], car)
-    world.push(point[0], point[1], point[2], local[i + 3], local[i + 4], local[i + 5])
+    const nx = local[i + 3]
+    const ny = local[i + 4]
+    const nz = local[i + 5]
+    world.push(
+      point[0],
+      point[1],
+      point[2],
+      rightX * nx + face.x * nz,
+      ny,
+      rightZ * nx + face.z * nz,
+      local[i + 6],
+      local[i + 7],
+      local[i + 8],
+      local[i + 9],
+    )
   }
   return new Float32Array(world)
 }
@@ -209,18 +271,16 @@ function buildTerrain(field) {
       const x1 = x0 + dx
       const z0 = bounds.minZ + iz * dz
       const z1 = z0 + dz
-      const corners = [
-        [x0, terrainHeight(x0, z0), z0],
-        [x1, terrainHeight(x1, z0), z0],
-        [x1, terrainHeight(x1, z1), z1],
-        [x0, terrainHeight(x0, z1), z1],
-      ]
-      pushVertex(data, corners[0][0], corners[0][1], corners[0][2], GROUND)
-      pushVertex(data, corners[1][0], corners[1][1], corners[1][2], GROUND)
-      pushVertex(data, corners[2][0], corners[2][1], corners[2][2], GROUND)
-      pushVertex(data, corners[0][0], corners[0][1], corners[0][2], GROUND)
-      pushVertex(data, corners[2][0], corners[2][1], corners[2][2], GROUND)
-      pushVertex(data, corners[3][0], corners[3][1], corners[3][2], GROUND)
+      const y00 = terrainHeight(x0, z0)
+      const y10 = terrainHeight(x1, z0)
+      const y11 = terrainHeight(x1, z1)
+      const y01 = terrainHeight(x0, z1)
+      const a = [x0, y00, z0]
+      const b = [x0, y01, z1]
+      const c = [x1, y11, z1]
+      const d = [x1, y10, z0]
+      pushTri(data, a, b, c, GROUND)
+      pushTri(data, a, c, d, GROUND)
     }
   }
   return new Float32Array(data)
@@ -236,9 +296,16 @@ function addCone(data, x, z, height, radius, color) {
   }
   for (let i = 0; i < sides; i++) {
     const next = (i + 1) % sides
-    pushVertex(data, ring[i][0], y, ring[i][1], color)
-    pushVertex(data, ring[next][0], y, ring[next][1], color)
-    pushVertex(data, x, y + height, z, color)
+    const a = [ring[i][0], y, ring[i][1]]
+    const b = [x, y + height, z]
+    const c = [ring[next][0], y, ring[next][1]]
+    const normal = faceNormal(a, b, c)
+    const midX = (a[0] + c[0]) / 2 - x
+    const midZ = (a[2] + c[2]) / 2 - z
+    const n = normal[0] * midX + normal[2] * midZ >= 0 ? normal : [-normal[0], -normal[1], -normal[2]]
+    pushVertex(data, a[0], a[1], a[2], color, n)
+    pushVertex(data, b[0], b[1], b[2], color, n)
+    pushVertex(data, c[0], c[1], c[2], color, n)
   }
 }
 
@@ -269,13 +336,14 @@ function buildWedge(car) {
   const rightFarX = farX - rightX * 7
   const rightFarZ = farZ - rightZ * 7
   const data = []
+  const up = [0, 1, 0]
   const segments = 6
   for (let i = 0; i < segments; i++) {
     const t0 = i / segments
     const t1 = (i + 1) / segments
-    pushVertex(data, car.x, y, car.z, BEAM)
-    pushVertex(data, leftX + (rightFarX - leftX) * t0, y, leftZ + (rightFarZ - leftZ) * t0, BEAM)
-    pushVertex(data, leftX + (rightFarX - leftX) * t1, y, leftZ + (rightFarZ - leftZ) * t1, BEAM)
+    pushVertex(data, car.x, y, car.z, BEAM, up, 0)
+    pushVertex(data, leftX + (rightFarX - leftX) * t0, y, leftZ + (rightFarZ - leftZ) * t0, BEAM, up, 0)
+    pushVertex(data, leftX + (rightFarX - leftX) * t1, y, leftZ + (rightFarZ - leftZ) * t1, BEAM, up, 0)
   }
   return new Float32Array(data)
 }
@@ -307,7 +375,7 @@ function upload(gl, data) {
   const buffer = gl.createBuffer()
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW)
-  return { buffer, count: data.length / 6 }
+  return { buffer, count: data.length / STRIDE }
 }
 
 export function createView(canvas, gl) {
@@ -319,7 +387,9 @@ export function createView(canvas, gl) {
     throw new Error(gl.getProgramInfoLog(program) || "program failed")
   }
   const posLoc = gl.getAttribLocation(program, "aPos")
+  const normalLoc = gl.getAttribLocation(program, "aNormal")
   const colorLoc = gl.getAttribLocation(program, "aColor")
+  const shadeLoc = gl.getAttribLocation(program, "aShade")
   const viewLoc = gl.getUniformLocation(program, "uViewProj")
   const carLocal = buildCarLocal()
   const carBuffer = gl.createBuffer()
@@ -332,9 +402,13 @@ export function createView(canvas, gl) {
   function bind(mesh) {
     gl.bindBuffer(gl.ARRAY_BUFFER, mesh.buffer)
     gl.enableVertexAttribArray(posLoc)
+    gl.enableVertexAttribArray(normalLoc)
     gl.enableVertexAttribArray(colorLoc)
-    gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 24, 0)
-    gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, 24, 12)
+    gl.enableVertexAttribArray(shadeLoc)
+    gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, STRIDE * 4, 0)
+    gl.vertexAttribPointer(normalLoc, 3, gl.FLOAT, false, STRIDE * 4, 12)
+    gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, STRIDE * 4, 24)
+    gl.vertexAttribPointer(shadeLoc, 1, gl.FLOAT, false, STRIDE * 4, 36)
     gl.drawArrays(gl.TRIANGLES, 0, mesh.count)
   }
 
@@ -377,11 +451,11 @@ export function createView(canvas, gl) {
       const wedge = buildWedge(run.car)
       gl.bindBuffer(gl.ARRAY_BUFFER, wedgeBuffer)
       gl.bufferData(gl.ARRAY_BUFFER, wedge, gl.DYNAMIC_DRAW)
-      bind({ buffer: wedgeBuffer, count: wedge.length / 6 })
+      bind({ buffer: wedgeBuffer, count: wedge.length / STRIDE })
       const carData = transformMesh(carLocal, run.car)
       gl.bindBuffer(gl.ARRAY_BUFFER, carBuffer)
       gl.bufferData(gl.ARRAY_BUFFER, carData, gl.DYNAMIC_DRAW)
-      bind({ buffer: carBuffer, count: carData.length / 6 })
+      bind({ buffer: carBuffer, count: carData.length / STRIDE })
     },
   }
 }

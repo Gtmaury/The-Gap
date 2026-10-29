@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { createRun, forward } from "./sim.js"
 import { field } from "./stages.js"
-import { projectCar, projectPoint, viewPose } from "./render.js"
+import { lightFactor, projectCar, projectPoint, viewPose } from "./render.js"
 
 function inLowerHalf(car, aspect) {
   const ndc = projectCar(car, aspect)
@@ -14,10 +14,10 @@ function inLowerHalf(car, aspect) {
 const straight = createRun(field)
 const pose = viewPose(straight.car)
 assert.equal(pose.eye.x, 0)
-assert.equal(pose.eye.y, 28)
-assert.equal(pose.eye.z, -18)
+assert.equal(pose.eye.y, 56)
+assert.equal(pose.eye.z, -36)
 assert.equal(pose.look.x, 0)
-assert.equal(pose.look.z, 4)
+assert.equal(pose.look.z, 8)
 
 for (const aspect of [1, 16 / 9, 9 / 16]) inLowerHalf(straight.car, aspect)
 
@@ -26,7 +26,7 @@ const bodyNow = projectPoint(straight.car, 16 / 9, { x: 0, y: 1, z: 0 })
 assert.ok(farther.y > bodyNow.y)
 const trunk = projectPoint(straight.car, 16 / 9, { x: 10, y: 0, z: 0 })
 const crown = projectPoint(straight.car, 16 / 9, { x: 10, y: 8, z: 0 })
-assert.ok(crown.y - trunk.y > 0.2)
+assert.ok(crown.y - trunk.y > 0.08)
 
 function aheadStaysUp(car) {
   const face = forward(car.heading)
@@ -45,10 +45,10 @@ aheadStaysUp(straight.car)
 const turnedCar = { ...straight.car, heading: Math.PI / 4 }
 const turnedPose = viewPose(turnedCar)
 assert.equal(turnedPose.eye.x, turnedCar.x)
-assert.equal(turnedPose.eye.y, turnedCar.y + 28)
-assert.equal(turnedPose.eye.z, turnedCar.z - 18)
+assert.equal(turnedPose.eye.y, turnedCar.y + 56)
+assert.equal(turnedPose.eye.z, turnedCar.z - 36)
 assert.equal(turnedPose.look.x, turnedCar.x)
-assert.equal(turnedPose.look.z, turnedCar.z + 4)
+assert.equal(turnedPose.look.z, turnedCar.z + 8)
 for (const aspect of [1, 16 / 9]) inLowerHalf(turnedCar, aspect)
 
 const face = forward(turnedCar.heading)
@@ -65,3 +65,11 @@ assert.equal(source.includes("buildCourse"), false)
 assert.equal(source.includes("GATE_YELLOW"), false)
 assert.equal(source.includes("0.82, 0.08, 0.07"), true)
 assert.equal(source.includes("0.78, 0.78, 0.8"), true)
+assert.equal(source.includes("aNormal"), true)
+assert.equal(source.includes("mix(1.0, lit, vShade)"), true)
+
+const upward = lightFactor([0, 1, 0])
+const downward = lightFactor([0, -1, 0])
+const away = lightFactor([-0.15, -0.9, 0.35])
+assert.ok(upward > downward, `up ${upward} down ${downward}`)
+assert.ok(upward > away, `up ${upward} away ${away}`)
