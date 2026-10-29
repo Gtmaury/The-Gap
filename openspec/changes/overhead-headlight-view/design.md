@@ -21,7 +21,9 @@ The rally page already runs. `rally/render.js` uses one unlit color shader. The 
 
 ### Steep camera in `draw`
 
-Replace the chase eye. Desired eye is 4 m behind the car and 32 m up. Look target is 16 m ahead of the car, 1 m above the ground. Field of view becomes 0.7 radians so the car stays small and the field fills the frame. World up stays `(0, 1, 0)`. The existing lerp (about 8 per second) still eases the eye. Because the look target is ahead of the car, the car sits in the lower part of the frame and the ground ahead stays visible when the heading changes.
+Replace the chase eye. Desired eye is 10 m behind the car and 48 m up. Look target is 12 m ahead of the car, 1 m above the ground. Field of view is 0.8 radians. World up stays `(0, 1, 0)`. The existing lerp (about 8 per second) still eases the eye.
+
+An eye only 4 m behind, 32 m up, looking 16 m ahead at 0.7 radians puts the car outside the frame (projected y past -1). The 10 m / 48 m / 12 m / 0.8 radian camera keeps the car in the lower half and the ground ahead in the upper half.
 
 Alternative: orthographic top-down. It matches the flat reference more strictly, and it makes the headlight wedge a screen-space shape that fights the perspective car. A steep perspective camera keeps the current `perspective` / `lookAt` path.
 
@@ -39,7 +41,7 @@ Alternative: a cone test in the fragment shader. It would fade more softly, and 
 
 `rally/scenery.js` exports `propsFor(stage)`. It is deterministic from the stage id and the stage points. It returns 16 pines and 12 rocks, each `{ x, z, kind }`. A candidate is kept only when `distanceToCourse` is greater than `halfWidth + 4`. Placement uses the stage bounds already implied by the points, expanded by about 40 m, and a tiny seeded integer hash. No `Math.random`.
 
-Pines are 6-sided cones, about 4 m tall, color about `[0.22, 0.22, 0.24]`. Rocks are flattened 6-sided lumps, under 1 m tall, color about `[0.16, 0.16, 0.17]`. Both are flat-shaded triangle lists in the static stage mesh.
+Pines are 6-sided cones, 8 m tall with a 3 m radius, color about `[0.22, 0.22, 0.24]`. A 4 m cone disappears into a dot from the 48 m camera. Rocks are flattened cones about 0.8 m tall, color about `[0.16, 0.16, 0.17]`. Both are flat-shaded triangle lists in the static stage mesh.
 
 Course posts change from cream to a dark gray, about `[0.28, 0.28, 0.3]`, and stay shorter than the pines. The finish gate stays black and yellow so it is distinct from posts and pines.
 

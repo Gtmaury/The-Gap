@@ -1,3 +1,4 @@
+import { propsFor } from "./scenery.js"
 import { forward, terrainHeight } from "./sim.js"
 
 const VERTEX = `
@@ -19,7 +20,10 @@ void main() {
 }
 `
 
-const POST = [0.93, 0.9, 0.78]
+const POST = [0.28, 0.28, 0.3]
+const PINE = [0.22, 0.22, 0.24]
+const ROCK = [0.16, 0.16, 0.17]
+const BEAM = [0.86, 0.86, 0.88]
 const GATE_BLACK = [0.06, 0.06, 0.07]
 const GATE_YELLOW = [0.95, 0.78, 0.08]
 
@@ -153,9 +157,9 @@ function transformMesh(local, car) {
 }
 
 function groundColor(height) {
-  if (height < 0.4) return [0.28, 0.48, 0.24]
-  if (height < 2) return [0.36, 0.5, 0.22]
-  return [0.46, 0.36, 0.22]
+  if (height < 0.4) return [0.68, 0.68, 0.68]
+  if (height < 2) return [0.58, 0.58, 0.58]
+  return [0.48, 0.48, 0.48]
 }
 
 function boundsOf(stage) {
@@ -199,6 +203,54 @@ function buildTerrain(stage) {
       pushVertex(data, corners[2][0], corners[2][1], corners[2][2], groundColor(midB))
       pushVertex(data, corners[3][0], corners[3][1], corners[3][2], groundColor(midB))
     }
+  }
+  return new Float32Array(data)
+}
+
+function addCone(data, x, z, height, radius, color) {
+  const y = terrainHeight(x, z)
+  const sides = 6
+  const ring = []
+  for (let i = 0; i < sides; i++) {
+    const angle = (i / sides) * Math.PI * 2
+    ring.push([x + Math.cos(angle) * radius, z + Math.sin(angle) * radius])
+  }
+  for (let i = 0; i < sides; i++) {
+    const next = (i + 1) % sides
+    pushVertex(data, ring[i][0], y, ring[i][1], color)
+    pushVertex(data, ring[next][0], y, ring[next][1], color)
+    pushVertex(data, x, y + height, z, color)
+  }
+}
+
+function buildScenery(stage) {
+  const data = []
+  for (const prop of propsFor(stage)) {
+    if (prop.kind === "pine") addCone(data, prop.x, prop.z, 8, 3, PINE)
+    else addCone(data, prop.x, prop.z, 0.8, 1.1, ROCK)
+  }
+  return new Float32Array(data)
+}
+
+function buildWedge(car) {
+  const face = forward(car.heading)
+  const rightX = face.z
+  const rightZ = -face.x
+  const y = terrainHeight(car.x, car.z) + 0.08
+  const farX = car.x + face.x * 16
+  const farZ = car.z + face.z * 16
+  const leftX = farX + rightX * 7
+  const leftZ = farZ + rightZ * 7
+  const rightFarX = farX - rightX * 7
+  const rightFarZ = farZ - rightZ * 7
+  const data = []
+  const segments = 6
+  for (let i = 0; i < segments; i++) {
+    const t0 = i / segments
+    const t1 = (i + 1) / segments
+    pushVertex(data, car.x, y, car.z, BEAM)
+    pushVertex(data, leftX + (rightFarX - leftX) * t0, y, leftZ + (rightFarZ - leftZ) * t0, BEAM)
+    pushVertex(data, leftX + (rightFarX - leftX) * t1, y, leftZ + (rightFarZ - leftZ) * t1, BEAM)
   }
   return new Float32Array(data)
 }
@@ -269,7 +321,7 @@ function buildCourse(stage) {
 
 function buildCarLocal() {
   const data = []
-  addBox(data, [-0.85, 0.45, -1.8], [0.85, 1.05, 1.9], [0.74, 0.16, 0.12])
+  addBox(data, [-0.85, 0.45, -1.8], [0.85, 1.05, 1.9], [0.9, 0.9, 0.92])
   addBox(data, [-0.62, 1.05, -0.45], [0.62, 1.7, 1.05], [0.16, 0.2, 0.24])
   const wheel = [0.12, 0.12, 0.13]
   for (const [x, z] of [[-0.95, -1.15], [0.95, -1.15], [-0.95, 1.2], [0.95, 1.2]]) {
@@ -308,6 +360,7 @@ export function createView(canvas, gl) {
   const viewLoc = gl.getUniformLocation(program, "uViewProj")
   const carLocal = buildCarLocal()
   const carBuffer = gl.createBuffer()
+  const wedgeBuffer = gl.createBuffer()
   let staticMeshes = []
   let eye = null
   let look = null
@@ -324,7 +377,11 @@ export function createView(canvas, gl) {
 
   return {
     setStage(stage) {
-      staticMeshes = [upload(gl, buildTerrain(stage)), upload(gl, buildCourse(stage))]
+      staticMeshes = [
+        upload(gl, buildTerrain(stage)),
+        upload(gl, buildCourse(stage)),
+        upload(gl, buildScenery(stage)),
+      ]
       eye = null
     },
     draw(run, dt) {
@@ -340,9 +397,9 @@ export function createView(canvas, gl) {
       aspect = pixelsW / pixelsH
       const face = forward(run.car.heading)
       const desired = {
-        x: run.car.x - face.x * 12,
-        y: run.car.y + 6,
-        z: run.car.z - face.z * 12,
+        x: run.car.x - face.x * 10,
+        y: run.car.y + 48,
+        z: run.car.z - face.z * 10,
       }
       if (!eye) eye = { ...desired }
       const blend = 1 - Math.exp(-8 * Math.max(0, dt))
@@ -350,22 +407,26 @@ export function createView(canvas, gl) {
       eye.y += (desired.y - eye.y) * blend
       eye.z += (desired.z - eye.z) * blend
       look = {
-        x: run.car.x + face.x * 8,
-        y: run.car.y + 1.4,
-        z: run.car.z + face.z * 8,
+        x: run.car.x + face.x * 12,
+        y: run.car.y + 1,
+        z: run.car.z + face.z * 12,
       }
       const viewProj = multiply(
-        perspective(Math.PI / 3, aspect, 0.2, 800),
+        perspective(0.8, aspect, 0.2, 800),
         lookAt(eye, look, { x: 0, y: 1, z: 0 }),
       )
       gl.viewport(0, 0, canvas.width, canvas.height)
-      gl.clearColor(0.55, 0.76, 0.95, 1)
+      gl.clearColor(0.7, 0.7, 0.72, 1)
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
       gl.enable(gl.DEPTH_TEST)
       gl.disable(gl.CULL_FACE)
       gl.useProgram(program)
       gl.uniformMatrix4fv(viewLoc, false, new Float32Array(viewProj))
       for (const mesh of staticMeshes) bind(mesh)
+      const wedge = buildWedge(run.car)
+      gl.bindBuffer(gl.ARRAY_BUFFER, wedgeBuffer)
+      gl.bufferData(gl.ARRAY_BUFFER, wedge, gl.DYNAMIC_DRAW)
+      bind({ buffer: wedgeBuffer, count: wedge.length / 6 })
       const carData = transformMesh(carLocal, run.car)
       gl.bindBuffer(gl.ARRAY_BUFFER, carBuffer)
       gl.bufferData(gl.ARRAY_BUFFER, carData, gl.DYNAMIC_DRAW)
