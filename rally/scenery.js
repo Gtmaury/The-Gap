@@ -18,18 +18,19 @@ function seedFrom(field) {
   return h >>> 0
 }
 
-export function propsFor(field) {
+export function propsForChunk(field, index) {
   const seed = seedFrom(field)
   const spots = []
   const columns = 24
   const rows = 24
   const width = field.maxX - field.minX
   const depth = field.maxZ - field.minZ
+  const z0 = field.minZ + depth * index
   for (let iz = 0; iz < rows; iz++) {
     for (let ix = 0; ix < columns; ix++) {
-      const jitter = hash(seed + ix * 131 + iz * 977)
+      const jitter = hash(seed + index * 10007 + ix * 131 + iz * 977)
       const x = field.minX + ((ix + ((jitter & 255) / 255) * 0.85) / columns) * width
-      const z = field.minZ + ((iz + (((jitter >>> 8) & 255) / 255) * 0.85) / rows) * depth
+      const z = z0 + ((iz + (((jitter >>> 8) & 255) / 255) * 0.85) / rows) * depth
       if (Math.hypot(x - field.start.x, z - field.start.z) >= CLEARANCE) {
         spots.push({ x, z, jitter })
       }
@@ -42,10 +43,14 @@ export function propsFor(field) {
     else break
   }
   if (props.length !== PINES) {
-    throw new Error(`field ${field.id} has ${props.length} scenery spots`)
+    throw new Error(`field ${field.id} chunk ${index} has ${props.length} scenery spots`)
   }
-  if (!props.some((prop) => prop.z > field.start.z)) {
+  if (index === 0 && !props.some((prop) => prop.z > field.start.z)) {
     throw new Error(`field ${field.id} has no scenery ahead of the start`)
   }
   return props
+}
+
+export function propsFor(field) {
+  return propsForChunk(field, 0)
 }

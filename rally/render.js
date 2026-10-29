@@ -1,4 +1,4 @@
-import { propsFor } from "./scenery.js"
+import { propsForChunk } from "./scenery.js"
 import { forward, gradeAlong, terrainHeight } from "./sim.js"
 
 const VERTEX = `
@@ -270,17 +270,32 @@ function boundsOf(field) {
   return { minX: field.minX, maxX: field.maxX, minZ: field.minZ, maxZ: field.maxZ }
 }
 
-function buildTerrain(field) {
+export function chunksAround(z) {
+  const behind = z - 400
+  const ahead = z + 800
+  const span = 180
+  const first = Math.floor((behind + 90) / span)
+  const indexes = []
+  for (let index = first; -90 + span * index < ahead; index++) {
+    const end = -90 + span * (index + 1)
+    if (end > behind) indexes.push(index)
+  }
+  return indexes
+}
+
+function buildTerrain(field, index) {
   const cells = 40
   const bounds = boundsOf(field)
+  const span = bounds.maxZ - bounds.minZ
+  const zBase = bounds.minZ + span * index
   const data = []
   const dx = (bounds.maxX - bounds.minX) / cells
-  const dz = (bounds.maxZ - bounds.minZ) / cells
+  const dz = span / cells
   for (let iz = 0; iz < cells; iz++) {
     for (let ix = 0; ix < cells; ix++) {
       const x0 = bounds.minX + ix * dx
       const x1 = x0 + dx
-      const z0 = bounds.minZ + iz * dz
+      const z0 = zBase + iz * dz
       const z1 = z0 + dz
       const y00 = terrainHeight(x0, z0)
       const y10 = terrainHeight(x1, z0)
@@ -326,9 +341,9 @@ function addRock(data, x, z) {
   addBox(data, [x - 0.2, y, z - 1.1], [x + 1.3, y + 1.15, z + 0.2], ROCK)
 }
 
-function buildScenery(field) {
+function buildScenery(field, index) {
   const data = []
-  for (const prop of propsFor(field)) {
+  for (const prop of propsForChunk(field, index)) {
     if (prop.kind === "pine") addCone(data, prop.x, prop.z, 8, 3, PINE)
     else addRock(data, prop.x, prop.z)
   }
@@ -410,6 +425,8 @@ export function createView(canvas, gl) {
   const carBuffer = gl.createBuffer()
   const wedgeBuffer = gl.createBuffer()
   let staticMeshes = []
+  let chunkKey = ""
+  let activeField = null
   let eye = null
   let look = null
   let aspect = 1
@@ -429,7 +446,10 @@ export function createView(canvas, gl) {
 
   return {
     setField(field) {
-      staticMeshes = [upload(gl, buildTerrain(field)), upload(gl, buildScenery(field))]
+      activeField = field
+      for (const mesh of staticMeshes) gl.deleteBuffer(mesh.buffer)
+      staticMeshes = []
+      chunkKey = ""
       eye = null
     },
     draw(run, dt) {
@@ -462,6 +482,17 @@ export function createView(canvas, gl) {
       gl.disable(gl.CULL_FACE)
       gl.useProgram(program)
       gl.uniformMatrix4fv(viewLoc, false, new Float32Array(viewProj))
+      const indexes = chunksAround(run.car.z)
+      const key = indexes.join(",")
+      if (key !== chunkKey) {
+        for (const mesh of staticMeshes) gl.deleteBuffer(mesh.buffer)
+        staticMeshes = []
+        for (const index of indexes) {
+          staticMeshes.push(upload(gl, buildTerrain(activeField, index)))
+          staticMeshes.push(upload(gl, buildScenery(activeField, index)))
+        }
+        chunkKey = key
+      }
       for (const mesh of staticMeshes) bind(mesh)
       const wedge = buildWedge(run.car)
       gl.bindBuffer(gl.ARRAY_BUFFER, wedgeBuffer)

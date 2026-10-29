@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { createRun, forward } from "./sim.js"
 import { field } from "./stages.js"
-import { carPoint, lightFactor, projectCar, projectPoint, viewPose } from "./render.js"
+import { carPoint, chunksAround, lightFactor, projectCar, projectPoint, viewPose } from "./render.js"
 
 function inLowerHalf(car, aspect) {
   const ndc = projectCar(car, aspect)
@@ -69,6 +69,8 @@ assert.equal(source.includes("0.78, 0.78, 0.8"), false)
 assert.equal(source.includes("0.86, 0.89, 0.93"), true)
 const nose = carPoint(straight.car, [0, 0, 1])
 assert.ok(nose.y > straight.car.y, `nose ${nose.y} car ${straight.car.y}`)
+const windowAt200 = chunksAround(200)
+assert.ok(windowAt200.some((index) => -90 + 180 * index >= 90), windowAt200.join(","))
 assert.equal(source.includes("aNormal"), true)
 assert.equal(source.includes("mix(1.0, lit, vShade)"), true)
 

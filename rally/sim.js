@@ -7,18 +7,12 @@ export const SNOW_GRIP = 0.65
 export const LATERAL_DECAY = 2.5
 export const SLOPE_GRAVITY = 9.8
 
-const SUMMIT_X = 0
-const SUMMIT_Z = 70
-const SUMMIT_HEIGHT = 28
-const SUMMIT_RADIUS = 160
+export const RIBBON_PERIOD = 180
 
 // Heading 0 faces +z. Steer above 0 is a left turn and increases heading.
 // forward = (-sin(heading), cos(heading)), so +x is to the right.
-export function terrainHeight(x, z) {
-  const dx = x - SUMMIT_X
-  const dz = z - SUMMIT_Z
-  const t = Math.max(0, 1 - (dx * dx + dz * dz) / (SUMMIT_RADIUS * SUMMIT_RADIUS))
-  return SUMMIT_HEIGHT * t * t
+export function terrainHeight(_x, z) {
+  return 14 + 10 * Math.sin((2 * Math.PI * z) / RIBBON_PERIOD)
 }
 
 export function gradeAlong(x, z, dirX, dirZ) {
