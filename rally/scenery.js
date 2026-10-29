@@ -1,8 +1,6 @@
-import { distanceToCourse } from "./sim.js"
-
-const PINES = 16
-const ROCKS = 12
-const CLEARANCE = 4
+const PINES = 28
+const ROCKS = 20
+const CLEARANCE = 10
 
 function hash(n) {
   let x = n | 0
@@ -11,9 +9,9 @@ function hash(n) {
   return (x ^ (x >>> 16)) >>> 0
 }
 
-function seedFrom(stage) {
+function seedFrom(field) {
   let h = 2166136261
-  const text = `${stage.id}:${stage.points.map((point) => `${point.x},${point.z}`).join(";")}`
+  const text = `${field.id}:${field.minX},${field.maxX},${field.minZ},${field.maxZ}`
   for (let i = 0; i < text.length; i++) {
     h ^= text.charCodeAt(i)
     h = Math.imul(h, 16777619)
@@ -21,31 +19,19 @@ function seedFrom(stage) {
   return h >>> 0
 }
 
-export function propsFor(stage) {
-  let minX = Infinity
-  let maxX = -Infinity
-  let minZ = Infinity
-  let maxZ = -Infinity
-  for (const point of stage.points) {
-    minX = Math.min(minX, point.x)
-    maxX = Math.max(maxX, point.x)
-    minZ = Math.min(minZ, point.z)
-    maxZ = Math.max(maxZ, point.z)
-  }
-  minX -= 40
-  maxX += 40
-  minZ -= 40
-  maxZ += 40
-  const seed = seedFrom(stage)
+export function propsFor(field) {
+  const seed = seedFrom(field)
   const spots = []
-  const columns = 28
-  const rows = 28
+  const columns = 24
+  const rows = 24
+  const width = field.maxX - field.minX
+  const depth = field.maxZ - field.minZ
   for (let iz = 0; iz < rows; iz++) {
     for (let ix = 0; ix < columns; ix++) {
       const jitter = hash(seed + ix * 131 + iz * 977)
-      const x = minX + ((ix + ((jitter & 255) / 255) * 0.85) / columns) * (maxX - minX)
-      const z = minZ + ((iz + (((jitter >>> 8) & 255) / 255) * 0.85) / rows) * (maxZ - minZ)
-      if (distanceToCourse(x, z, stage) > stage.halfWidth + CLEARANCE) {
+      const x = field.minX + ((ix + ((jitter & 255) / 255) * 0.85) / columns) * width
+      const z = field.minZ + ((iz + (((jitter >>> 8) & 255) / 255) * 0.85) / rows) * depth
+      if (Math.hypot(x - field.start.x, z - field.start.z) >= CLEARANCE) {
         spots.push({ x, z, jitter })
       }
     }
@@ -58,7 +44,10 @@ export function propsFor(stage) {
     else break
   }
   if (props.length !== PINES + ROCKS) {
-    throw new Error(`stage ${stage.id} has ${props.length} scenery spots`)
+    throw new Error(`field ${field.id} has ${props.length} scenery spots`)
+  }
+  if (!props.some((prop) => prop.z > field.start.z)) {
+    throw new Error(`field ${field.id} has no scenery ahead of the start`)
   }
   return props
 }
