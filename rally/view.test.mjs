@@ -14,11 +14,11 @@ function inLowerHalf(car, aspect) {
 const straight = createRun(field)
 const pose = viewPose(straight.car)
 assert.equal(pose.eye.x, 0)
-assert.equal(pose.eye.y, straight.car.y + 29)
-assert.equal(pose.eye.z, straight.car.z - 46)
+assert.equal(pose.eye.y, straight.car.y + 43)
+assert.equal(pose.eye.z, straight.car.z - 47)
 assert.equal(pose.look.x, 0)
 assert.equal(pose.look.y, straight.car.y + 0.5)
-assert.equal(pose.look.z, straight.car.z + 24)
+assert.equal(pose.look.z, straight.car.z + 16)
 
 for (const aspect of [1, 16 / 9, 9 / 16]) inLowerHalf(straight.car, aspect)
 
@@ -46,10 +46,10 @@ aheadStaysUp(straight.car)
 const turnedCar = { ...straight.car, heading: Math.PI / 4 }
 const turnedPose = viewPose(turnedCar)
 assert.equal(turnedPose.eye.x, turnedCar.x)
-assert.equal(turnedPose.eye.y, turnedCar.y + 29)
-assert.equal(turnedPose.eye.z, turnedCar.z - 46)
+assert.equal(turnedPose.eye.y, turnedCar.y + 43)
+assert.equal(turnedPose.eye.z, turnedCar.z - 47)
 assert.equal(turnedPose.look.x, turnedCar.x)
-assert.equal(turnedPose.look.z, turnedCar.z + 24)
+assert.equal(turnedPose.look.z, turnedCar.z + 16)
 for (const aspect of [1, 16 / 9]) inLowerHalf(turnedCar, aspect)
 
 const face = forward(turnedCar.heading)

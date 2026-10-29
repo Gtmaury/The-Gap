@@ -7,6 +7,8 @@ export const SNOW_GRIP = 0.65
 export const LATERAL_DECAY = 2.5
 export const SLOPE_GRAVITY = 9.8
 
+import { slide } from "./route.js"
+
 export const RIBBON_PERIOD = 180
 
 // Heading 0 faces +z. Steer above 0 is a left turn and increases heading.
@@ -48,7 +50,7 @@ export function restart(run) {
   return createRun(run.field)
 }
 
-export function step(run, input, dt) {
+export function step(run, input, dt, solids = []) {
   const accelerate = Boolean(input.accelerate)
   const brake = Boolean(input.brake)
   const steer = Math.max(-1, Math.min(1, input.steer || 0))
@@ -81,10 +83,15 @@ export function step(run, input, dt) {
     latZ *= keep
   }
 
-  const vx = face.x * alongSpeed + latX
-  const vz = face.z * alongSpeed + latZ
-  const x = run.car.x + vx * dt
-  const z = run.car.z + vz * dt
+  let vx = face.x * alongSpeed + latX
+  let vz = face.z * alongSpeed + latZ
+  let x = run.car.x + vx * dt
+  let z = run.car.z + vz * dt
+  const resolved = slide(x, z, vx, vz, solids)
+  x = resolved.x
+  z = resolved.z
+  vx = resolved.vx
+  vz = resolved.vz
   const speed = Math.hypot(vx, vz)
 
   return {

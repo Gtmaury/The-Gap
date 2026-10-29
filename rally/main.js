@@ -1,4 +1,6 @@
-import { createView } from "./render.js"
+import { chunksAround, createView } from "./render.js"
+import { propsForChunk } from "./scenery.js"
+import { solidRadius } from "./route.js"
 import { field, places } from "./stages.js"
 import { createRun, restart, step } from "./sim.js"
 
@@ -51,7 +53,13 @@ if (!gl) {
     accumulator += dt
     const stepDt = 1 / 60
     while (accumulator >= stepDt) {
-      run = step(run, input(), stepDt)
+      const solids = []
+      for (const index of chunksAround(run.car.z)) {
+        for (const prop of propsForChunk(run.field, index)) {
+          solids.push({ x: prop.x, z: prop.z, radius: solidRadius(prop.kind) })
+        }
+      }
+      run = step(run, input(), stepDt, solids)
       accumulator -= stepDt
     }
     paint(dt)

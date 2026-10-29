@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
+import { CAR_RADIUS, PINE_RADIUS, ROUTE_HALF, routeCenter } from "./route.js"
 import { RIBBON_PERIOD, TOP_SPEED, YAW_RATE, createRun, forward, gradeAlong, restart, step, terrainHeight } from "./sim.js"
 import { field, places } from "./stages.js"
 
@@ -121,6 +122,23 @@ assert.equal(again.car.z, fresh.car.z)
 assert.equal(again.car.heading, fresh.car.heading)
 assert.equal(again.field, field)
 assert.equal(step(again, idle, 0.2).car.speed, 0)
+
+let lane = createRun(field)
+for (let i = 0; i < 40; i++) lane = step(lane, gas, 0.1)
+const laneLimit = ROUTE_HALF - CAR_RADIUS
+assert.ok(Math.abs(lane.car.x - routeCenter(lane.car.z)) <= laneLimit + 1e-6)
+assert.ok(lane.car.speed > 0)
+assert.ok(lane.car.z > 8)
+
+const blocked = createRun(field)
+blocked.car.z = 4
+blocked.car.vz = 8
+blocked.car.speed = 8
+const tree = { x: 0, z: 6, radius: PINE_RADIUS }
+const hit = step(blocked, gas, 0.05, [tree])
+assert.ok(Math.hypot(hit.car.x - tree.x, hit.car.z - tree.z) >= CAR_RADIUS + tree.radius - 1e-6)
+assert.ok(hit.car.z < tree.z)
+assert.equal(hit.car.heading, blocked.car.heading)
 
 const source = readFileSync(new URL("./sim.js", import.meta.url), "utf8")
 assert.equal(source.includes("localStorage"), false)
