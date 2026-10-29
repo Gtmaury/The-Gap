@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
-import { TOP_SPEED, YAW_RATE, createRun, forward, restart, step, terrainHeight } from "./sim.js"
+import { RIBBON_PERIOD, TOP_SPEED, YAW_RATE, createRun, forward, restart, step, terrainHeight } from "./sim.js"
 import { field } from "./stages.js"
 
 const idle = { accelerate: false, brake: false, steer: 0 }
@@ -19,10 +19,10 @@ assert.equal(run.car.x, 0)
 assert.equal(run.car.z, 0)
 assert.equal(run.car.speed, 0)
 assert.equal(run.car.heading, 0)
-assert.ok(run.car.y > terrainHeight(0, -90))
+assert.ok(run.car.y > terrainHeight(0, -45))
 assert.equal(run.car.y, terrainHeight(0, 0))
-assert.ok(terrainHeight(0, 70) > run.car.y)
-assert.equal(field.id, "snow-mountain")
+assert.ok(Math.abs(terrainHeight(12, 40) - terrainHeight(12, 40 + RIBBON_PERIOD)) < 1e-6)
+assert.equal(field.id, "snow-ribbon")
 assert.equal(Object.hasOwn(run, "stageTime"), false)
 assert.equal(Object.hasOwn(run, "penaltyTime"), false)
 assert.equal(Object.hasOwn(run, "phase"), false)
