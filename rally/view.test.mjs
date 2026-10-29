@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { createRun, forward } from "./sim.js"
 import { field } from "./stages.js"
-import { lightFactor, projectCar, projectPoint, viewPose } from "./render.js"
+import { carPoint, lightFactor, projectCar, projectPoint, viewPose } from "./render.js"
 
 function inLowerHalf(car, aspect) {
   const ndc = projectCar(car, aspect)
@@ -14,18 +14,19 @@ function inLowerHalf(car, aspect) {
 const straight = createRun(field)
 const pose = viewPose(straight.car)
 assert.equal(pose.eye.x, 0)
-assert.equal(pose.eye.y, 56)
-assert.equal(pose.eye.z, -36)
+assert.equal(pose.eye.y, straight.car.y + 56)
+assert.equal(pose.eye.z, straight.car.z - 36)
 assert.equal(pose.look.x, 0)
-assert.equal(pose.look.z, 8)
+assert.equal(pose.look.y, straight.car.y + 0.5)
+assert.equal(pose.look.z, straight.car.z + 8)
 
 for (const aspect of [1, 16 / 9, 9 / 16]) inLowerHalf(straight.car, aspect)
 
 const farther = projectPoint(straight.car, 16 / 9, { x: 0, y: 1, z: 20 })
 const bodyNow = projectPoint(straight.car, 16 / 9, { x: 0, y: 1, z: 0 })
 assert.ok(farther.y > bodyNow.y)
-const trunk = projectPoint(straight.car, 16 / 9, { x: 10, y: 0, z: 0 })
-const crown = projectPoint(straight.car, 16 / 9, { x: 10, y: 8, z: 0 })
+const trunk = projectPoint(straight.car, 16 / 9, { x: 10, y: straight.car.y, z: 0 })
+const crown = projectPoint(straight.car, 16 / 9, { x: 10, y: straight.car.y + 8, z: 0 })
 assert.ok(crown.y - trunk.y > 0.08)
 
 function aheadStaysUp(car) {
@@ -64,7 +65,10 @@ const source = readFileSync(new URL("./render.js", import.meta.url), "utf8")
 assert.equal(source.includes("buildCourse"), false)
 assert.equal(source.includes("GATE_YELLOW"), false)
 assert.equal(source.includes("0.82, 0.08, 0.07"), true)
-assert.equal(source.includes("0.78, 0.78, 0.8"), true)
+assert.equal(source.includes("0.78, 0.78, 0.8"), false)
+assert.equal(source.includes("0.86, 0.89, 0.93"), true)
+const nose = carPoint(straight.car, [0, 0, 1])
+assert.ok(nose.y > straight.car.y, `nose ${nose.y} car ${straight.car.y}`)
 assert.equal(source.includes("aNormal"), true)
 assert.equal(source.includes("mix(1.0, lit, vShade)"), true)
 
