@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
-import { RIBBON_PERIOD, TOP_SPEED, YAW_RATE, createRun, forward, restart, step, terrainHeight } from "./sim.js"
-import { field } from "./stages.js"
+import { RIBBON_PERIOD, TOP_SPEED, YAW_RATE, createRun, forward, gradeAlong, restart, step, terrainHeight } from "./sim.js"
+import { field, places } from "./stages.js"
 
 const idle = { accelerate: false, brake: false, steer: 0 }
 const gas = { accelerate: true, brake: false, steer: 0 }
@@ -19,10 +19,26 @@ assert.equal(run.car.x, 0)
 assert.equal(run.car.z, 0)
 assert.equal(run.car.speed, 0)
 assert.equal(run.car.heading, 0)
-assert.ok(run.car.y > terrainHeight(0, -45))
-assert.equal(run.car.y, terrainHeight(0, 0))
-assert.ok(Math.abs(terrainHeight(12, 40) - terrainHeight(12, 40 + RIBBON_PERIOD)) < 1e-6)
-assert.equal(field.id, "snow-ribbon")
+assert.ok(run.car.y > terrainHeight(field, 0, -45))
+assert.equal(run.car.y, terrainHeight(field, 0, 0))
+for (const place of places) {
+  assert.ok(Math.abs(terrainHeight(place, 12, 40) - terrainHeight(place, 12, 40 + RIBBON_PERIOD)) < 1e-6)
+}
+assert.equal(field.id, "night-snow")
+const grades = Object.fromEntries(places.map((place) => [place.id, gradeAlong(place, 0, 0, 0, 1)]))
+assert.ok(grades["night-forest"] < grades["night-snow"])
+assert.ok(grades["night-rock"] > grades["night-snow"])
+function crestSpeed(place) {
+  const crest = createRun(place)
+  crest.car.z = 45
+  crest.car.y = terrainHeight(place, 0, 45)
+  crest.car.speed = 0
+  crest.car.vx = 0
+  crest.car.vz = 0
+  return step(crest, gas, 1).car.speed
+}
+assert.ok(crestSpeed(places[1]) > crestSpeed(places[0]))
+assert.ok(crestSpeed(places[2]) < crestSpeed(places[0]))
 assert.equal(Object.hasOwn(run, "stageTime"), false)
 assert.equal(Object.hasOwn(run, "penaltyTime"), false)
 assert.equal(Object.hasOwn(run, "phase"), false)
@@ -70,7 +86,7 @@ assert.ok(after.x < before.x)
 
 run = createRun(field)
 run = step(run, gas, 0.5)
-assert.equal(run.car.y, terrainHeight(run.car.x, run.car.z))
+assert.equal(run.car.y, terrainHeight(field, run.car.x, run.car.z))
 
 const coastDown = createRun(field)
 coastDown.car.heading = Math.PI

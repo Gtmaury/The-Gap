@@ -11,13 +11,13 @@ export const RIBBON_PERIOD = 180
 
 // Heading 0 faces +z. Steer above 0 is a left turn and increases heading.
 // forward = (-sin(heading), cos(heading)), so +x is to the right.
-export function terrainHeight(_x, z) {
-  return 14 + 10 * Math.sin((2 * Math.PI * z) / RIBBON_PERIOD)
+export function terrainHeight(place, _x, z) {
+  return place.heightBase + place.heightAmp * Math.sin((2 * Math.PI * z) / RIBBON_PERIOD)
 }
 
-export function gradeAlong(x, z, dirX, dirZ) {
+export function gradeAlong(place, x, z, dirX, dirZ) {
   const step = 0.5
-  return (terrainHeight(x + dirX * step, z + dirZ * step) - terrainHeight(x, z)) / step
+  return (terrainHeight(place, x + dirX * step, z + dirZ * step) - terrainHeight(place, x, z)) / step
 }
 
 export function forward(heading) {
@@ -35,7 +35,7 @@ export function createRun(field) {
     car: {
       x: start.x,
       z: start.z,
-      y: terrainHeight(start.x, start.z),
+      y: terrainHeight(field, start.x, start.z),
       heading: start.heading,
       speed: 0,
       vx: 0,
@@ -63,10 +63,10 @@ export function step(run, input, dt) {
   let latX = vx0 - face.x * along
   let latZ = vz0 - face.z * along
 
-  const grade = gradeAlong(run.car.x, run.car.z, face.x, face.z)
+  const grade = gradeAlong(run.field, run.car.x, run.car.z, face.x, face.z)
   let alongSpeed = along
   if (brake) alongSpeed -= BRAKE * dt
-  else if (accelerate) alongSpeed += ACCEL * SNOW_GRIP * dt
+  else if (accelerate) alongSpeed += ACCEL * run.field.grip * dt
   else alongSpeed -= DRAG * dt
   alongSpeed += slopeAccel(grade) * dt
   if (alongSpeed < 0) alongSpeed = 0
@@ -92,7 +92,7 @@ export function step(run, input, dt) {
     car: {
       x,
       z,
-      y: terrainHeight(x, z),
+      y: terrainHeight(run.field, x, z),
       heading,
       speed,
       vx,

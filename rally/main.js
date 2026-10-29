@@ -1,5 +1,5 @@
 import { createView } from "./render.js"
-import { field } from "./stages.js"
+import { field, places } from "./stages.js"
 import { createRun, restart, step } from "./sim.js"
 
 const canvas = document.querySelector("#view")
@@ -33,6 +33,14 @@ if (!gl) {
     accumulator = 0
   }
 
+  function selectPlace(index) {
+    const place = places[index]
+    if (!place) return
+    run = createRun(place)
+    accumulator = 0
+    view.setField(place)
+  }
+
   function paint(dt) {
     view.draw(run, dt)
   }
@@ -56,6 +64,9 @@ if (!gl) {
       event.preventDefault()
     }
     if (event.code === "KeyR") restartRun()
+    if (event.code === "Digit1") selectPlace(0)
+    if (event.code === "Digit2") selectPlace(1)
+    if (event.code === "Digit3") selectPlace(2)
   })
   window.addEventListener("keyup", (event) => keys.delete(event.code))
   window.addEventListener("blur", () => keys.clear())

@@ -9,10 +9,12 @@ attribute float aShade;
 uniform mat4 uViewProj;
 varying vec3 vColor;
 varying vec3 vNormal;
+varying vec3 vWorld;
 varying float vShade;
 void main() {
   vColor = aColor;
   vNormal = aNormal;
+  vWorld = aPos;
   vShade = aShade;
   gl_Position = uViewProj * vec4(aPos, 1.0);
 }
@@ -22,17 +24,34 @@ const FRAGMENT = `
 precision mediump float;
 varying vec3 vColor;
 varying vec3 vNormal;
+varying vec3 vWorld;
 varying float vShade;
+uniform vec2 uCar;
+uniform vec2 uNose;
+uniform float uHeightBase;
+uniform float uHeightAmp;
 void main() {
-  vec3 light = normalize(vec3(0.15, 0.90, -0.35));
-  float lit = 0.42 + 0.70 * max(dot(normalize(vNormal), light), 0.0);
-  gl_FragColor = vec4(vColor * mix(1.0, lit, vShade), 1.0);
+  vec3 light = normalize(vec3(0.25, 0.72, -0.45));
+  float lit = 0.15 + 0.55 * max(dot(normalize(vNormal), light), 0.0);
+  vec3 color = vColor * mix(1.0, lit, vShade);
+  vec2 delta = vWorld.xz - uCar;
+  float along = dot(delta, uNose);
+  float lat = abs(delta.x * uNose.y - delta.y * uNose.x);
+  float halfW = along / 16.0 * 7.0;
+  float head = 0.0;
+  if (along > 0.0 && along < 16.0 && lat < halfW) {
+    head = (1.0 - along / 16.0) * (1.0 - lat / halfW);
+  }
+  float groundY = uHeightBase + uHeightAmp * sin(6.2831853 * vWorld.z / 180.0);
+  float onGround = 1.0 - step(1.5, abs(vWorld.y - groundY));
+  color += vShade * onGround * head * vec3(1.0);
+  gl_FragColor = vec4(min(color, vec3(1.0)), 1.0);
 }
 `
 
 const STRIDE = 10
 
-const GROUND = [0.86, 0.89, 0.93]
+const SKY = [0.05, 0.06, 0.10]
 const PINE = [0.22, 0.22, 0.24]
 const ROCK = [0.16, 0.16, 0.17]
 const BEAM = [1, 1, 1]
@@ -43,13 +62,13 @@ export function viewPose(car) {
   return {
     eye: {
       x: car.x,
-      y: car.y + 56,
-      z: car.z - 36,
+      y: car.y + 29,
+      z: car.z - 46,
     },
     look: {
       x: car.x,
       y: car.y + 0.5,
-      z: car.z + 8,
+      z: car.z + 24,
     },
   }
 }
@@ -81,12 +100,27 @@ function unit(x, y, z) {
   return [x / len, y / len, z / len]
 }
 
-const LIGHT = unit(0.15, 0.9, -0.35)
+const LIGHT = unit(0.25, 0.72, -0.45)
 
 export function lightFactor(normal) {
   const n = unit(normal[0], normal[1], normal[2])
   const dot = Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2])
-  return 0.42 + 0.7 * dot
+  return 0.15 + 0.55 * dot
+}
+
+export function headlightAmount(car, point, place) {
+  const ground = terrainHeight(place, point.x, point.z)
+  const y = point.y ?? ground
+  if (Math.abs(y - ground) > 1.5) return 0
+  const face = forward(car.heading)
+  const dx = point.x - car.x
+  const dz = point.z - car.z
+  const along = dx * face.x + dz * face.z
+  if (along <= 0 || along >= 16) return 0
+  const lat = Math.abs(dx * face.z - dz * face.x)
+  const half = (along / 16) * 7
+  if (half <= 0 || lat >= half) return 0
+  return (1 - along / 16) * (1 - lat / half)
 }
 
 function multiply(a, b) {
@@ -218,9 +252,9 @@ function addPrism(target, x, y, z, radius, halfLength, color) {
   cap(x + halfLength, false)
 }
 
-function carBasis(car) {
+function carBasis(car, place) {
   const face = forward(car.heading)
-  const pitch = Math.atan(gradeAlong(car.x, car.z, face.x, face.z))
+  const pitch = Math.atan(gradeAlong(place, car.x, car.z, face.x, face.z))
   const cos = Math.cos(pitch)
   const sin = Math.sin(pitch)
   return {
@@ -238,14 +272,14 @@ function applyBasis(origin, basis, local) {
   ]
 }
 
-export function carPoint(car, local) {
-  const point = applyBasis([car.x, car.y, car.z], carBasis(car), local)
+export function carPoint(car, local, place) {
+  const point = applyBasis([car.x, car.y, car.z], carBasis(car, place), local)
   return { x: point[0], y: point[1], z: point[2] }
 }
 
-function transformMesh(local, car) {
+function transformMesh(local, car, place) {
   const world = []
-  const basis = carBasis(car)
+  const basis = carBasis(car, place)
   const origin = [car.x, car.y, car.z]
   for (let i = 0; i < local.length; i += STRIDE) {
     const point = applyBasis(origin, basis, [local[i], local[i + 1], local[i + 2]])
@@ -272,7 +306,7 @@ function boundsOf(field) {
 
 export function chunksAround(z) {
   const behind = z - 400
-  const ahead = z + 800
+  const ahead = z + 1200
   const span = 180
   const first = Math.floor((behind + 90) / span)
   const indexes = []
@@ -297,23 +331,23 @@ function buildTerrain(field, index) {
       const x1 = x0 + dx
       const z0 = zBase + iz * dz
       const z1 = z0 + dz
-      const y00 = terrainHeight(x0, z0)
-      const y10 = terrainHeight(x1, z0)
-      const y11 = terrainHeight(x1, z1)
-      const y01 = terrainHeight(x0, z1)
+      const y00 = terrainHeight(field, x0, z0)
+      const y10 = terrainHeight(field, x1, z0)
+      const y11 = terrainHeight(field, x1, z1)
+      const y01 = terrainHeight(field, x0, z1)
       const a = [x0, y00, z0]
       const b = [x0, y01, z1]
       const c = [x1, y11, z1]
       const d = [x1, y10, z0]
-      pushTri(data, a, b, c, GROUND)
-      pushTri(data, a, c, d, GROUND)
+      pushTri(data, a, b, c, field.ground)
+      pushTri(data, a, c, d, field.ground)
     }
   }
   return new Float32Array(data)
 }
 
-function addCone(data, x, z, height, radius, color) {
-  const y = terrainHeight(x, z)
+function addCone(data, x, z, height, radius, color, field) {
+  const y = terrainHeight(field, x, z)
   const sides = 6
   const ring = []
   for (let i = 0; i < sides; i++) {
@@ -335,8 +369,8 @@ function addCone(data, x, z, height, radius, color) {
   }
 }
 
-function addRock(data, x, z) {
-  const y = terrainHeight(x, z)
+function addRock(data, x, z, field) {
+  const y = terrainHeight(field, x, z)
   addBox(data, [x - 1.2, y, z - 0.7], [x + 0.3, y + 0.7, z + 0.9], ROCK)
   addBox(data, [x - 0.2, y, z - 1.1], [x + 1.3, y + 1.15, z + 0.2], ROCK)
 }
@@ -344,13 +378,13 @@ function addRock(data, x, z) {
 function buildScenery(field, index) {
   const data = []
   for (const prop of propsForChunk(field, index)) {
-    if (prop.kind === "pine") addCone(data, prop.x, prop.z, 8, 3, PINE)
-    else addRock(data, prop.x, prop.z)
+    if (prop.kind === "pine") addCone(data, prop.x, prop.z, 8, 3, PINE, field)
+    else addRock(data, prop.x, prop.z, field)
   }
   return new Float32Array(data)
 }
 
-function buildWedge(car) {
+function buildWedge(car, place) {
   const face = forward(car.heading)
   const rightX = face.z
   const rightZ = -face.x
@@ -362,7 +396,7 @@ function buildWedge(car) {
   const rightFarZ = farZ - rightZ * 7
   const data = []
   const up = [0, 1, 0]
-  const snow = (x, z) => terrainHeight(x, z) + 0.08
+  const snow = (x, z) => terrainHeight(place, x, z) + 0.08
   const segments = 6
   for (let i = 0; i < segments; i++) {
     const t0 = i / segments
@@ -421,6 +455,10 @@ export function createView(canvas, gl) {
   const colorLoc = gl.getAttribLocation(program, "aColor")
   const shadeLoc = gl.getAttribLocation(program, "aShade")
   const viewLoc = gl.getUniformLocation(program, "uViewProj")
+  const carLoc = gl.getUniformLocation(program, "uCar")
+  const noseLoc = gl.getUniformLocation(program, "uNose")
+  const heightBaseLoc = gl.getUniformLocation(program, "uHeightBase")
+  const heightAmpLoc = gl.getUniformLocation(program, "uHeightAmp")
   const carLocal = buildCarLocal()
   const carBuffer = gl.createBuffer()
   const wedgeBuffer = gl.createBuffer()
@@ -476,12 +514,17 @@ export function createView(canvas, gl) {
         lookAt(eye, look, { x: 0, y: 1, z: 0 }),
       )
       gl.viewport(0, 0, canvas.width, canvas.height)
-      gl.clearColor(GROUND[0], GROUND[1], GROUND[2], 1)
+      gl.clearColor(SKY[0], SKY[1], SKY[2], 1)
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
       gl.enable(gl.DEPTH_TEST)
       gl.disable(gl.CULL_FACE)
       gl.useProgram(program)
       gl.uniformMatrix4fv(viewLoc, false, new Float32Array(viewProj))
+      const face = forward(run.car.heading)
+      gl.uniform2f(carLoc, run.car.x, run.car.z)
+      gl.uniform2f(noseLoc, face.x, face.z)
+      gl.uniform1f(heightBaseLoc, activeField?.heightBase ?? 14)
+      gl.uniform1f(heightAmpLoc, activeField?.heightAmp ?? 10)
       const indexes = chunksAround(run.car.z)
       const key = indexes.join(",")
       if (key !== chunkKey) {
@@ -494,11 +537,11 @@ export function createView(canvas, gl) {
         chunkKey = key
       }
       for (const mesh of staticMeshes) bind(mesh)
-      const wedge = buildWedge(run.car)
+      const wedge = buildWedge(run.car, activeField)
       gl.bindBuffer(gl.ARRAY_BUFFER, wedgeBuffer)
       gl.bufferData(gl.ARRAY_BUFFER, wedge, gl.DYNAMIC_DRAW)
       bind({ buffer: wedgeBuffer, count: wedge.length / STRIDE })
-      const carData = transformMesh(carLocal, run.car)
+      const carData = transformMesh(carLocal, run.car, activeField)
       gl.bindBuffer(gl.ARRAY_BUFFER, carBuffer)
       gl.bufferData(gl.ARRAY_BUFFER, carData, gl.DYNAMIC_DRAW)
       bind({ buffer: carBuffer, count: carData.length / STRIDE })

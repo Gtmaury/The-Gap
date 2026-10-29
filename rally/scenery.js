@@ -1,4 +1,3 @@
-const PINES = 48
 const CLEARANCE = 10
 
 function hash(n) {
@@ -39,10 +38,10 @@ export function propsForChunk(field, index) {
   spots.sort((a, b) => a.jitter - b.jitter || a.x - b.x || a.z - b.z)
   const props = []
   for (const spot of spots) {
-    if (props.length < PINES) props.push({ x: spot.x, z: spot.z, kind: "pine" })
+    if (props.length < field.count) props.push({ x: spot.x, z: spot.z, kind: field.kind })
     else break
   }
-  if (props.length !== PINES) {
+  if (props.length !== field.count) {
     throw new Error(`field ${field.id} chunk ${index} has ${props.length} scenery spots`)
   }
   if (index === 0 && !props.some((prop) => prop.z > field.start.z)) {
