@@ -2,7 +2,7 @@ export const TOP_SPEED = 16
 export const ACCEL = 14
 export const BRAKE = 22
 export const DRAG = 4
-export const YAW_RATE = 1.8
+export const YAW_RATE = 2.6
 
 // Heading 0 faces +z. Steer above 0 is a left turn and increases heading.
 // forward = (-sin(heading), cos(heading)), so +x is to the right.
@@ -45,7 +45,7 @@ export function step(run, input, dt) {
   if (speed > TOP_SPEED) speed = TOP_SPEED
 
   let heading = run.car.heading
-  if (speed > 0 && steer !== 0) heading += steer * YAW_RATE * dt
+  if (steer !== 0) heading += steer * YAW_RATE * dt
 
   const face = forward(heading)
   const x = run.car.x + face.x * speed * dt

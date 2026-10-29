@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
-import { TOP_SPEED, createRun, forward, restart, step, terrainHeight } from "./sim.js"
+import { TOP_SPEED, YAW_RATE, createRun, forward, restart, step, terrainHeight } from "./sim.js"
 import { field } from "./stages.js"
 
 const idle = { accelerate: false, brake: false, steer: 0 }
@@ -36,10 +36,19 @@ run = step(run, brake, 2)
 assert.equal(run.car.speed, 0)
 
 run = createRun(field)
-const stoppedHeading = run.car.heading
 run = step(run, { accelerate: false, brake: false, steer: 1 }, 1)
 assert.equal(run.car.speed, 0)
-assert.equal(run.car.heading, stoppedHeading)
+assert.equal(run.car.x, 0)
+assert.equal(run.car.z, 0)
+assert.ok(Math.abs(run.car.heading - YAW_RATE) < 1e-9)
+assert.equal(YAW_RATE, 2.6)
+
+run = createRun(field)
+run = step(run, gas, 0.2)
+const movingZ = run.car.z
+run = step(run, brake, 2)
+assert.equal(run.car.speed, 0)
+assert.ok(run.car.z >= movingZ)
 
 run = createRun(field)
 run = step(run, gas, 0.2)
