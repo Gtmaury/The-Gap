@@ -20,12 +20,50 @@ void main() {
 }
 `
 
-const POST = [0.28, 0.28, 0.3]
+const GROUND = [0.78, 0.78, 0.8]
 const PINE = [0.22, 0.22, 0.24]
 const ROCK = [0.16, 0.16, 0.17]
 const BEAM = [0.86, 0.86, 0.88]
-const GATE_BLACK = [0.06, 0.06, 0.07]
-const GATE_YELLOW = [0.95, 0.78, 0.08]
+const TAIL = [0.82, 0.08, 0.07]
+const BODY = [0.9, 0.9, 0.92]
+
+export function viewPose(car) {
+  const face = forward(car.heading)
+  return {
+    eye: {
+      x: car.x - face.x * 6,
+      y: car.y + 62,
+      z: car.z - face.z * 6,
+    },
+    look: {
+      x: car.x + face.x * 8,
+      y: car.y + 0.5,
+      z: car.z + face.z * 8,
+    },
+  }
+}
+
+export function projectPoint(car, aspect, world) {
+  const pose = viewPose(car)
+  const viewProj = multiply(
+    perspective(0.8, aspect, 0.2, 800),
+    lookAt(pose.eye, pose.look, { x: 0, y: 1, z: 0 }),
+  )
+  const point = [world.x, world.y, world.z, 1]
+  const clip = [0, 0, 0, 0]
+  for (let row = 0; row < 4; row++) {
+    clip[row] =
+      viewProj[row] * point[0] +
+      viewProj[4 + row] * point[1] +
+      viewProj[8 + row] * point[2] +
+      viewProj[12 + row] * point[3]
+  }
+  return { x: clip[0] / clip[3], y: clip[1] / clip[3], z: clip[2] / clip[3] }
+}
+
+export function projectCar(car, aspect) {
+  return projectPoint(car, aspect, { x: car.x, y: car.y + 1, z: car.z })
+}
 
 function multiply(a, b) {
   const out = new Array(16)
@@ -156,29 +194,13 @@ function transformMesh(local, car) {
   return new Float32Array(world)
 }
 
-function groundColor(height) {
-  if (height < 0.4) return [0.68, 0.68, 0.68]
-  if (height < 2) return [0.58, 0.58, 0.58]
-  return [0.48, 0.48, 0.48]
+function boundsOf(field) {
+  return { minX: field.minX, maxX: field.maxX, minZ: field.minZ, maxZ: field.maxZ }
 }
 
-function boundsOf(stage) {
-  let minX = Infinity
-  let maxX = -Infinity
-  let minZ = Infinity
-  let maxZ = -Infinity
-  for (const point of stage.points) {
-    minX = Math.min(minX, point.x)
-    maxX = Math.max(maxX, point.x)
-    minZ = Math.min(minZ, point.z)
-    maxZ = Math.max(maxZ, point.z)
-  }
-  return { minX: minX - 70, maxX: maxX + 70, minZ: minZ - 70, maxZ: maxZ + 70 }
-}
-
-function buildTerrain(stage) {
+function buildTerrain(field) {
   const cells = 40
-  const bounds = boundsOf(stage)
+  const bounds = boundsOf(field)
   const data = []
   const dx = (bounds.maxX - bounds.minX) / cells
   const dz = (bounds.maxZ - bounds.minZ) / cells
@@ -194,14 +216,12 @@ function buildTerrain(stage) {
         [x1, terrainHeight(x1, z1), z1],
         [x0, terrainHeight(x0, z1), z1],
       ]
-      const midA = (corners[0][1] + corners[1][1] + corners[2][1]) / 3
-      const midB = (corners[0][1] + corners[2][1] + corners[3][1]) / 3
-      pushVertex(data, corners[0][0], corners[0][1], corners[0][2], groundColor(midA))
-      pushVertex(data, corners[1][0], corners[1][1], corners[1][2], groundColor(midA))
-      pushVertex(data, corners[2][0], corners[2][1], corners[2][2], groundColor(midA))
-      pushVertex(data, corners[0][0], corners[0][1], corners[0][2], groundColor(midB))
-      pushVertex(data, corners[2][0], corners[2][1], corners[2][2], groundColor(midB))
-      pushVertex(data, corners[3][0], corners[3][1], corners[3][2], groundColor(midB))
+      pushVertex(data, corners[0][0], corners[0][1], corners[0][2], GROUND)
+      pushVertex(data, corners[1][0], corners[1][1], corners[1][2], GROUND)
+      pushVertex(data, corners[2][0], corners[2][1], corners[2][2], GROUND)
+      pushVertex(data, corners[0][0], corners[0][1], corners[0][2], GROUND)
+      pushVertex(data, corners[2][0], corners[2][1], corners[2][2], GROUND)
+      pushVertex(data, corners[3][0], corners[3][1], corners[3][2], GROUND)
     }
   }
   return new Float32Array(data)
@@ -223,11 +243,17 @@ function addCone(data, x, z, height, radius, color) {
   }
 }
 
-function buildScenery(stage) {
+function addRock(data, x, z) {
+  const y = terrainHeight(x, z)
+  addBox(data, [x - 1.2, y, z - 0.7], [x + 0.3, y + 0.7, z + 0.9], ROCK)
+  addBox(data, [x - 0.2, y, z - 1.1], [x + 1.3, y + 1.15, z + 0.2], ROCK)
+}
+
+function buildScenery(field) {
   const data = []
-  for (const prop of propsFor(stage)) {
+  for (const prop of propsFor(field)) {
     if (prop.kind === "pine") addCone(data, prop.x, prop.z, 8, 3, PINE)
-    else addCone(data, prop.x, prop.z, 0.8, 1.1, ROCK)
+    else addRock(data, prop.x, prop.z)
   }
   return new Float32Array(data)
 }
@@ -255,73 +281,11 @@ function buildWedge(car) {
   return new Float32Array(data)
 }
 
-function samplePolyline(points, spacing) {
-  const samples = []
-  let carried = 0
-  for (let i = 0; i < points.length - 1; i++) {
-    const a = points[i]
-    const b = points[i + 1]
-    const dx = b.x - a.x
-    const dz = b.z - a.z
-    const len = Math.hypot(dx, dz)
-    if (len === 0) continue
-    let traveled = carried
-    while (traveled <= len) {
-      const t = traveled / len
-      samples.push({
-        x: a.x + dx * t,
-        z: a.z + dz * t,
-        px: -dz / len,
-        pz: dx / len,
-      })
-      traveled += spacing
-    }
-    carried = traveled - len
-  }
-  return samples
-}
-
-function addPost(data, x, z, height, size, color) {
-  const y = terrainHeight(x, z)
-  addBox(data, [x - size, y, z - size], [x + size, y + height, z + size], color)
-}
-
-function buildCourse(stage) {
-  const data = []
-  for (const sample of samplePolyline(stage.points, 18)) {
-    addPost(data, sample.x + sample.px * stage.halfWidth, sample.z + sample.pz * stage.halfWidth, 2.2, 0.28, POST)
-    addPost(data, sample.x - sample.px * stage.halfWidth, sample.z - sample.pz * stage.halfWidth, 2.2, 0.28, POST)
-  }
-  const points = stage.points
-  const a = points[points.length - 2]
-  const b = points[points.length - 1]
-  const dx = b.x - a.x
-  const dz = b.z - a.z
-  const len = Math.hypot(dx, dz) || 1
-  const px = -dz / len
-  const pz = dx / len
-  const left = { x: b.x + px * stage.halfWidth, z: b.z + pz * stage.halfWidth }
-  const right = { x: b.x - px * stage.halfWidth, z: b.z - pz * stage.halfWidth }
-  addPost(data, left.x, left.z, 5, 0.4, GATE_BLACK)
-  addPost(data, right.x, right.z, 5, 0.4, GATE_YELLOW)
-  const barY = terrainHeight(b.x, b.z) + 4.2
-  const segments = 8
-  for (let i = 0; i < segments; i++) {
-    const t0 = i / segments
-    const t1 = (i + 1) / segments
-    const x0 = left.x + (right.x - left.x) * t0
-    const z0 = left.z + (right.z - left.z) * t0
-    const x1 = left.x + (right.x - left.x) * t1
-    const z1 = left.z + (right.z - left.z) * t1
-    const color = i % 2 === 0 ? GATE_YELLOW : GATE_BLACK
-    addBox(data, [Math.min(x0, x1) - 0.15, barY, Math.min(z0, z1) - 0.15], [Math.max(x0, x1) + 0.15, barY + 0.55, Math.max(z0, z1) + 0.15], color)
-  }
-  return new Float32Array(data)
-}
-
 function buildCarLocal() {
   const data = []
-  addBox(data, [-0.85, 0.45, -1.8], [0.85, 1.05, 1.9], [0.9, 0.9, 0.92])
+  addBox(data, [-0.85, 0.45, -1.8], [0.85, 1.05, 1.9], BODY)
+  addBox(data, [-0.55, 0.62, -1.95], [-0.2, 0.92, -1.72], TAIL)
+  addBox(data, [0.2, 0.62, -1.95], [0.55, 0.92, -1.72], TAIL)
   addBox(data, [-0.62, 1.05, -0.45], [0.62, 1.7, 1.05], [0.16, 0.2, 0.24])
   const wheel = [0.12, 0.12, 0.13]
   for (const [x, z] of [[-0.95, -1.15], [0.95, -1.15], [-0.95, 1.2], [0.95, 1.2]]) {
@@ -376,12 +340,8 @@ export function createView(canvas, gl) {
   }
 
   return {
-    setStage(stage) {
-      staticMeshes = [
-        upload(gl, buildTerrain(stage)),
-        upload(gl, buildCourse(stage)),
-        upload(gl, buildScenery(stage)),
-      ]
+    setField(field) {
+      staticMeshes = [upload(gl, buildTerrain(field)), upload(gl, buildScenery(field))]
       eye = null
     },
     draw(run, dt) {
@@ -395,28 +355,20 @@ export function createView(canvas, gl) {
         canvas.height = pixelsH
       }
       aspect = pixelsW / pixelsH
-      const face = forward(run.car.heading)
-      const desired = {
-        x: run.car.x - face.x * 10,
-        y: run.car.y + 48,
-        z: run.car.z - face.z * 10,
-      }
+      const desiredPose = viewPose(run.car)
+      const desired = desiredPose.eye
       if (!eye) eye = { ...desired }
       const blend = 1 - Math.exp(-8 * Math.max(0, dt))
       eye.x += (desired.x - eye.x) * blend
       eye.y += (desired.y - eye.y) * blend
       eye.z += (desired.z - eye.z) * blend
-      look = {
-        x: run.car.x + face.x * 12,
-        y: run.car.y + 1,
-        z: run.car.z + face.z * 12,
-      }
+      look = desiredPose.look
       const viewProj = multiply(
         perspective(0.8, aspect, 0.2, 800),
         lookAt(eye, look, { x: 0, y: 1, z: 0 }),
       )
       gl.viewport(0, 0, canvas.width, canvas.height)
-      gl.clearColor(0.7, 0.7, 0.72, 1)
+      gl.clearColor(GROUND[0], GROUND[1], GROUND[2], 1)
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
       gl.enable(gl.DEPTH_TEST)
       gl.disable(gl.CULL_FACE)

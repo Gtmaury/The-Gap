@@ -1,20 +1,20 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { propsFor } from "./scenery.js"
-import { distanceToCourse } from "./sim.js"
-import { stages } from "./stages.js"
+import { field } from "./stages.js"
 
-for (const stage of stages) {
-  const first = propsFor(stage)
-  const second = propsFor(stage)
-  const pines = first.filter((prop) => prop.kind === "pine")
-  const rocks = first.filter((prop) => prop.kind === "rock")
-  assert.equal(pines.length, 16, stage.name)
-  assert.equal(rocks.length, 12, stage.name)
-  assert.deepEqual(first, second)
-  for (const prop of first) {
-    assert.ok(distanceToCourse(prop.x, prop.z, stage) > stage.halfWidth + 4, stage.name)
-  }
+const first = propsFor(field)
+const second = propsFor(field)
+const pines = first.filter((prop) => prop.kind === "pine")
+const rocks = first.filter((prop) => prop.kind === "rock")
+assert.equal(pines.length, 28)
+assert.equal(rocks.length, 20)
+assert.deepEqual(first, second)
+assert.ok(first.some((prop) => prop.z > field.start.z))
+for (const prop of first) {
+  assert.ok(Math.hypot(prop.x - field.start.x, prop.z - field.start.z) >= 10)
+  assert.ok(prop.x >= field.minX && prop.x <= field.maxX)
+  assert.ok(prop.z >= field.minZ && prop.z <= field.maxZ)
 }
 
 const sim = readFileSync(new URL("./sim.js", import.meta.url), "utf8")
