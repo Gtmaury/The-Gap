@@ -31,13 +31,13 @@ export function viewPose(car) {
   return {
     eye: {
       x: car.x,
-      y: car.y + 62,
-      z: car.z - 6,
+      y: car.y + 28,
+      z: car.z - 18,
     },
     look: {
       x: car.x,
       y: car.y + 0.5,
-      z: car.z + 8,
+      z: car.z + 4,
     },
   }
 }

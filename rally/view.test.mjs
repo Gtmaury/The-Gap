@@ -4,22 +4,29 @@ import { createRun, forward } from "./sim.js"
 import { field } from "./stages.js"
 import { projectCar, projectPoint, viewPose } from "./render.js"
 
-function nearCenter(car, aspect) {
+function inLowerHalf(car, aspect) {
   const ndc = projectCar(car, aspect)
   assert.ok(Math.abs(ndc.x) < 0.35, `x ${ndc.x} aspect ${aspect}`)
-  assert.ok(Math.abs(ndc.y) < 0.35, `y ${ndc.y} aspect ${aspect}`)
+  assert.ok(ndc.y < 0 && ndc.y > -0.45, `y ${ndc.y} aspect ${aspect}`)
   assert.ok(Math.abs(ndc.z) < 1, `z ${ndc.z}`)
 }
 
 const straight = createRun(field)
 const pose = viewPose(straight.car)
 assert.equal(pose.eye.x, 0)
-assert.equal(pose.eye.y, 62)
-assert.equal(pose.eye.z, -6)
+assert.equal(pose.eye.y, 28)
+assert.equal(pose.eye.z, -18)
 assert.equal(pose.look.x, 0)
-assert.equal(pose.look.z, 8)
+assert.equal(pose.look.z, 4)
 
-for (const aspect of [1, 16 / 9, 9 / 16]) nearCenter(straight.car, aspect)
+for (const aspect of [1, 16 / 9, 9 / 16]) inLowerHalf(straight.car, aspect)
+
+const farther = projectPoint(straight.car, 16 / 9, { x: 0, y: 1, z: 20 })
+const bodyNow = projectPoint(straight.car, 16 / 9, { x: 0, y: 1, z: 0 })
+assert.ok(farther.y > bodyNow.y)
+const trunk = projectPoint(straight.car, 16 / 9, { x: 10, y: 0, z: 0 })
+const crown = projectPoint(straight.car, 16 / 9, { x: 10, y: 8, z: 0 })
+assert.ok(crown.y - trunk.y > 0.2)
 
 function aheadStaysUp(car) {
   const face = forward(car.heading)
@@ -38,11 +45,11 @@ aheadStaysUp(straight.car)
 const turnedCar = { ...straight.car, heading: Math.PI / 4 }
 const turnedPose = viewPose(turnedCar)
 assert.equal(turnedPose.eye.x, turnedCar.x)
-assert.equal(turnedPose.eye.y, turnedCar.y + 62)
-assert.equal(turnedPose.eye.z, turnedCar.z - 6)
+assert.equal(turnedPose.eye.y, turnedCar.y + 28)
+assert.equal(turnedPose.eye.z, turnedCar.z - 18)
 assert.equal(turnedPose.look.x, turnedCar.x)
-assert.equal(turnedPose.look.z, turnedCar.z + 8)
-for (const aspect of [1, 16 / 9]) nearCenter(turnedCar, aspect)
+assert.equal(turnedPose.look.z, turnedCar.z + 4)
+for (const aspect of [1, 16 / 9]) inLowerHalf(turnedCar, aspect)
 
 const face = forward(turnedCar.heading)
 const body = projectPoint(turnedCar, 16 / 9, { x: turnedCar.x, y: turnedCar.y + 1, z: turnedCar.z })
