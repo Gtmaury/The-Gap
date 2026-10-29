@@ -28,17 +28,16 @@ const TAIL = [0.82, 0.08, 0.07]
 const BODY = [0.9, 0.9, 0.92]
 
 export function viewPose(car) {
-  const face = forward(car.heading)
   return {
     eye: {
-      x: car.x - face.x * 6,
+      x: car.x,
       y: car.y + 62,
-      z: car.z - face.z * 6,
+      z: car.z - 6,
     },
     look: {
-      x: car.x + face.x * 8,
+      x: car.x,
       y: car.y + 0.5,
-      z: car.z + face.z * 8,
+      z: car.z + 8,
     },
   }
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
-import { createRun, forward, step } from "./sim.js"
+import { createRun, forward } from "./sim.js"
 import { field } from "./stages.js"
 import { projectCar, projectPoint, viewPose } from "./render.js"
 
@@ -35,11 +35,23 @@ function aheadStaysUp(car) {
 
 aheadStaysUp(straight.car)
 
-let turning = step(straight, { accelerate: true, brake: false, steer: 1 }, 0.4)
-turning = step(turning, { accelerate: true, brake: false, steer: 1 }, 0.8)
-assert.notEqual(turning.car.heading, 0)
-for (const aspect of [1, 16 / 9]) nearCenter(turning.car, aspect)
-aheadStaysUp(turning.car)
+const turnedCar = { ...straight.car, heading: Math.PI / 4 }
+const turnedPose = viewPose(turnedCar)
+assert.equal(turnedPose.eye.x, turnedCar.x)
+assert.equal(turnedPose.eye.y, turnedCar.y + 62)
+assert.equal(turnedPose.eye.z, turnedCar.z - 6)
+assert.equal(turnedPose.look.x, turnedCar.x)
+assert.equal(turnedPose.look.z, turnedCar.z + 8)
+for (const aspect of [1, 16 / 9]) nearCenter(turnedCar, aspect)
+
+const face = forward(turnedCar.heading)
+const body = projectPoint(turnedCar, 16 / 9, { x: turnedCar.x, y: turnedCar.y + 1, z: turnedCar.z })
+const ahead = projectPoint(turnedCar, 16 / 9, {
+  x: turnedCar.x + face.x * 6,
+  y: turnedCar.y + 1,
+  z: turnedCar.z + face.z * 6,
+})
+assert.ok(Math.abs(ahead.x - body.x) > 0.05)
 
 const source = readFileSync(new URL("./render.js", import.meta.url), "utf8")
 assert.equal(source.includes("buildCourse"), false)
