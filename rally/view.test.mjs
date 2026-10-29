@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
-import { createRun, forward } from "./sim.js"
+import { createRun, forward, terrainHeight } from "./sim.js"
 import { field } from "./stages.js"
-import { carPoint, chunksAround, lightFactor, projectCar, projectPoint, viewPose } from "./render.js"
+import { carPoint, chunksAround, headlightAmount, lightFactor, projectCar, projectPoint, viewPose } from "./render.js"
 
 function inLowerHalf(car, aspect) {
   const ndc = projectCar(car, aspect)
@@ -14,11 +14,11 @@ function inLowerHalf(car, aspect) {
 const straight = createRun(field)
 const pose = viewPose(straight.car)
 assert.equal(pose.eye.x, 0)
-assert.equal(pose.eye.y, straight.car.y + 56)
-assert.equal(pose.eye.z, straight.car.z - 36)
+assert.equal(pose.eye.y, straight.car.y + 29)
+assert.equal(pose.eye.z, straight.car.z - 46)
 assert.equal(pose.look.x, 0)
 assert.equal(pose.look.y, straight.car.y + 0.5)
-assert.equal(pose.look.z, straight.car.z + 8)
+assert.equal(pose.look.z, straight.car.z + 24)
 
 for (const aspect of [1, 16 / 9, 9 / 16]) inLowerHalf(straight.car, aspect)
 
@@ -46,10 +46,10 @@ aheadStaysUp(straight.car)
 const turnedCar = { ...straight.car, heading: Math.PI / 4 }
 const turnedPose = viewPose(turnedCar)
 assert.equal(turnedPose.eye.x, turnedCar.x)
-assert.equal(turnedPose.eye.y, turnedCar.y + 56)
-assert.equal(turnedPose.eye.z, turnedCar.z - 36)
+assert.equal(turnedPose.eye.y, turnedCar.y + 29)
+assert.equal(turnedPose.eye.z, turnedCar.z - 46)
 assert.equal(turnedPose.look.x, turnedCar.x)
-assert.equal(turnedPose.look.z, turnedCar.z + 8)
+assert.equal(turnedPose.look.z, turnedCar.z + 24)
 for (const aspect of [1, 16 / 9]) inLowerHalf(turnedCar, aspect)
 
 const face = forward(turnedCar.heading)
@@ -66,8 +66,14 @@ assert.equal(source.includes("buildCourse"), false)
 assert.equal(source.includes("GATE_YELLOW"), false)
 assert.equal(source.includes("0.82, 0.08, 0.07"), true)
 assert.equal(source.includes("0.78, 0.78, 0.8"), false)
-assert.equal(source.includes("0.86, 0.89, 0.93"), true)
-const nose = carPoint(straight.car, [0, 0, 1])
+assert.equal(source.includes("0.86, 0.89, 0.93"), false)
+assert.equal(source.includes("0.05, 0.06, 0.10"), true)
+const aheadLight = { x: 0, y: terrainHeight(field, 0, 8), z: 8 }
+const sideLight = { x: 8, y: terrainHeight(field, 8, 0), z: 0 }
+assert.ok(headlightAmount(straight.car, aheadLight, field) > headlightAmount(straight.car, sideLight, field))
+const noseTurned = { ...straight.car, heading: -Math.PI / 2 }
+assert.ok(headlightAmount(noseTurned, sideLight, field) > headlightAmount(noseTurned, aheadLight, field))
+const nose = carPoint(straight.car, [0, 0, 1], field)
 assert.ok(nose.y > straight.car.y, `nose ${nose.y} car ${straight.car.y}`)
 const windowAt200 = chunksAround(200)
 assert.ok(windowAt200.some((index) => -90 + 180 * index >= 90), windowAt200.join(","))

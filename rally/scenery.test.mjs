@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { propsForChunk } from "./scenery.js"
-import { field } from "./stages.js"
+import { field, places } from "./stages.js"
 
 const first = propsForChunk(field, 0)
 const second = propsForChunk(field, 0)
@@ -24,6 +24,24 @@ assert.equal(next.some((prop) => prop.kind === "rock"), false)
 assert.deepEqual(next, propsForChunk(field, 1))
 assert.ok(next.every((prop) => prop.z >= field.maxZ && prop.z < field.maxZ + 180))
 assert.ok(Math.min(...next.map((prop) => prop.z)) > Math.max(...first.map((prop) => prop.z)))
+
+const forest = places.find((place) => place.id === "night-forest")
+const rock = places.find((place) => place.id === "night-rock")
+for (const place of places) {
+  const chunk = propsForChunk(place, 0)
+  assert.equal(chunk.length, place.count)
+  assert.deepEqual(chunk, propsForChunk(place, 0))
+  assert.ok(chunk.some((prop) => prop.z > place.start.z))
+  for (const prop of chunk) {
+    assert.equal(prop.kind, place.kind)
+    assert.ok(Math.hypot(prop.x - place.start.x, prop.z - place.start.z) >= 10)
+  }
+}
+const forestPines = propsForChunk(forest, 0).filter((prop) => prop.kind === "pine")
+const snowPines = first.filter((prop) => prop.kind === "pine")
+assert.ok(forestPines.length > snowPines.length)
+assert.equal(propsForChunk(forest, 0).some((prop) => prop.kind === "rock"), false)
+assert.ok(propsForChunk(rock, 0).some((prop) => prop.kind === "rock"))
 
 const sim = readFileSync(new URL("./sim.js", import.meta.url), "utf8")
 assert.equal(sim.includes("scenery"), false)
