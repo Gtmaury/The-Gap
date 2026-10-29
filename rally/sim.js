@@ -1,17 +1,37 @@
 export const TOP_SPEED = 16
 export const ACCEL = 14
 export const BRAKE = 22
-export const DRAG = 4
+export const DRAG = 1.5
 export const YAW_RATE = 2.6
+export const SNOW_GRIP = 0.65
+export const LATERAL_DECAY = 2.5
+export const SLOPE_GRAVITY = 9.8
+
+const SUMMIT_X = 0
+const SUMMIT_Z = 70
+const SUMMIT_HEIGHT = 28
+const SUMMIT_RADIUS = 160
 
 // Heading 0 faces +z. Steer above 0 is a left turn and increases heading.
 // forward = (-sin(heading), cos(heading)), so +x is to the right.
-export function terrainHeight() {
-  return 0
+export function terrainHeight(x, z) {
+  const dx = x - SUMMIT_X
+  const dz = z - SUMMIT_Z
+  const t = Math.max(0, 1 - (dx * dx + dz * dz) / (SUMMIT_RADIUS * SUMMIT_RADIUS))
+  return SUMMIT_HEIGHT * t * t
+}
+
+export function gradeAlong(x, z, dirX, dirZ) {
+  const step = 0.5
+  return (terrainHeight(x + dirX * step, z + dirZ * step) - terrainHeight(x, z)) / step
 }
 
 export function forward(heading) {
   return { x: -Math.sin(heading), z: Math.cos(heading) }
+}
+
+function slopeAccel(grade) {
+  return (-SLOPE_GRAVITY * grade) / Math.hypot(1, grade)
 }
 
 export function createRun(field) {
@@ -24,6 +44,8 @@ export function createRun(field) {
       y: terrainHeight(start.x, start.z),
       heading: start.heading,
       speed: 0,
+      vx: 0,
+      vz: 0,
     },
   }
 }
@@ -37,19 +59,39 @@ export function step(run, input, dt) {
   const brake = Boolean(input.brake)
   const steer = Math.max(-1, Math.min(1, input.steer || 0))
 
-  let speed = run.car.speed
-  if (brake) speed -= BRAKE * dt
-  else if (accelerate) speed += ACCEL * dt
-  else speed -= DRAG * dt
-  if (speed < 0) speed = 0
-  if (speed > TOP_SPEED) speed = TOP_SPEED
-
   let heading = run.car.heading
   if (steer !== 0) heading += steer * YAW_RATE * dt
 
   const face = forward(heading)
-  const x = run.car.x + face.x * speed * dt
-  const z = run.car.z + face.z * speed * dt
+  const vx0 = run.car.vx || 0
+  const vz0 = run.car.vz || 0
+  const along = vx0 * face.x + vz0 * face.z
+  let latX = vx0 - face.x * along
+  let latZ = vz0 - face.z * along
+
+  const grade = gradeAlong(run.car.x, run.car.z, face.x, face.z)
+  let alongSpeed = along
+  if (brake) alongSpeed -= BRAKE * dt
+  else if (accelerate) alongSpeed += ACCEL * SNOW_GRIP * dt
+  else alongSpeed -= DRAG * dt
+  alongSpeed += slopeAccel(grade) * dt
+  if (alongSpeed < 0) alongSpeed = 0
+  if (alongSpeed > TOP_SPEED) alongSpeed = TOP_SPEED
+
+  if (alongSpeed === 0) {
+    latX = 0
+    latZ = 0
+  } else {
+    const keep = Math.exp(-LATERAL_DECAY * dt)
+    latX *= keep
+    latZ *= keep
+  }
+
+  const vx = face.x * alongSpeed + latX
+  const vz = face.z * alongSpeed + latZ
+  const x = run.car.x + vx * dt
+  const z = run.car.z + vz * dt
+  const speed = Math.hypot(vx, vz)
 
   return {
     field: run.field,
@@ -59,6 +101,8 @@ export function step(run, input, dt) {
       y: terrainHeight(x, z),
       heading,
       speed,
+      vx,
+      vz,
     },
   }
 }

@@ -1,5 +1,4 @@
-const PINES = 28
-const ROCKS = 20
+const PINES = 48
 const CLEARANCE = 10
 
 function hash(n) {
@@ -40,10 +39,9 @@ export function propsFor(field) {
   const props = []
   for (const spot of spots) {
     if (props.length < PINES) props.push({ x: spot.x, z: spot.z, kind: "pine" })
-    else if (props.length < PINES + ROCKS) props.push({ x: spot.x, z: spot.z, kind: "rock" })
     else break
   }
-  if (props.length !== PINES + ROCKS) {
+  if (props.length !== PINES) {
     throw new Error(`field ${field.id} has ${props.length} scenery spots`)
   }
   if (!props.some((prop) => prop.z > field.start.z)) {

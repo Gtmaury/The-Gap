@@ -1,5 +1,5 @@
 import { propsFor } from "./scenery.js"
-import { forward, terrainHeight } from "./sim.js"
+import { forward, gradeAlong, terrainHeight } from "./sim.js"
 
 const VERTEX = `
 attribute vec3 aPos;
@@ -32,10 +32,10 @@ void main() {
 
 const STRIDE = 10
 
-const GROUND = [0.78, 0.78, 0.8]
+const GROUND = [0.86, 0.89, 0.93]
 const PINE = [0.22, 0.22, 0.24]
 const ROCK = [0.16, 0.16, 0.17]
-const BEAM = [0.86, 0.86, 0.88]
+const BEAM = [1, 1, 1]
 const TAIL = [0.82, 0.08, 0.07]
 const BODY = [0.9, 0.9, 0.92]
 
@@ -218,34 +218,45 @@ function addPrism(target, x, y, z, radius, halfLength, color) {
   cap(x + halfLength, false)
 }
 
-function transformPoint(point, car) {
+function carBasis(car) {
   const face = forward(car.heading)
-  const rightX = face.z
-  const rightZ = -face.x
+  const pitch = Math.atan(gradeAlong(car.x, car.z, face.x, face.z))
+  const cos = Math.cos(pitch)
+  const sin = Math.sin(pitch)
+  return {
+    right: [face.z, 0, -face.x],
+    up: [-sin * face.x, cos, -sin * face.z],
+    forward: [face.x * cos, sin, face.z * cos],
+  }
+}
+
+function applyBasis(origin, basis, local) {
   return [
-    car.x + rightX * point[0] + face.x * point[2],
-    car.y + point[1],
-    car.z + rightZ * point[0] + face.z * point[2],
+    origin[0] + basis.right[0] * local[0] + basis.up[0] * local[1] + basis.forward[0] * local[2],
+    origin[1] + basis.right[1] * local[0] + basis.up[1] * local[1] + basis.forward[1] * local[2],
+    origin[2] + basis.right[2] * local[0] + basis.up[2] * local[1] + basis.forward[2] * local[2],
   ]
+}
+
+export function carPoint(car, local) {
+  const point = applyBasis([car.x, car.y, car.z], carBasis(car), local)
+  return { x: point[0], y: point[1], z: point[2] }
 }
 
 function transformMesh(local, car) {
   const world = []
-  const face = forward(car.heading)
-  const rightX = face.z
-  const rightZ = -face.x
+  const basis = carBasis(car)
+  const origin = [car.x, car.y, car.z]
   for (let i = 0; i < local.length; i += STRIDE) {
-    const point = transformPoint([local[i], local[i + 1], local[i + 2]], car)
-    const nx = local[i + 3]
-    const ny = local[i + 4]
-    const nz = local[i + 5]
+    const point = applyBasis(origin, basis, [local[i], local[i + 1], local[i + 2]])
+    const normal = applyBasis([0, 0, 0], basis, [local[i + 3], local[i + 4], local[i + 5]])
     world.push(
       point[0],
       point[1],
       point[2],
-      rightX * nx + face.x * nz,
-      ny,
-      rightZ * nx + face.z * nz,
+      normal[0],
+      normal[1],
+      normal[2],
       local[i + 6],
       local[i + 7],
       local[i + 8],
@@ -328,7 +339,6 @@ function buildWedge(car) {
   const face = forward(car.heading)
   const rightX = face.z
   const rightZ = -face.x
-  const y = terrainHeight(car.x, car.z) + 0.08
   const farX = car.x + face.x * 16
   const farZ = car.z + face.z * 16
   const leftX = farX + rightX * 7
@@ -337,13 +347,18 @@ function buildWedge(car) {
   const rightFarZ = farZ - rightZ * 7
   const data = []
   const up = [0, 1, 0]
+  const snow = (x, z) => terrainHeight(x, z) + 0.08
   const segments = 6
   for (let i = 0; i < segments; i++) {
     const t0 = i / segments
     const t1 = (i + 1) / segments
-    pushVertex(data, car.x, y, car.z, BEAM, up, 0)
-    pushVertex(data, leftX + (rightFarX - leftX) * t0, y, leftZ + (rightFarZ - leftZ) * t0, BEAM, up, 0)
-    pushVertex(data, leftX + (rightFarX - leftX) * t1, y, leftZ + (rightFarZ - leftZ) * t1, BEAM, up, 0)
+    const x0 = leftX + (rightFarX - leftX) * t0
+    const z0 = leftZ + (rightFarZ - leftZ) * t0
+    const x1 = leftX + (rightFarX - leftX) * t1
+    const z1 = leftZ + (rightFarZ - leftZ) * t1
+    pushVertex(data, car.x, snow(car.x, car.z), car.z, BEAM, up, 0)
+    pushVertex(data, x0, snow(x0, z0), z0, BEAM, up, 0)
+    pushVertex(data, x1, snow(x1, z1), z1, BEAM, up, 0)
   }
   return new Float32Array(data)
 }
