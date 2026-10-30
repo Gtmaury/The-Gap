@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { createRun, forward, terrainHeight } from "./sim.js"
 import { field } from "./stages.js"
-import { carPoint, chunksAround, headlightAmount, lightFactor, projectCar, projectPoint, viewPose } from "./render.js"
+import { buildCarLocal, carPoint, chunksAround, headlightAmount, lightFactor, projectCar, projectPoint, viewPose } from "./render.js"
 
 function inLowerHalf(car, aspect) {
   const ndc = projectCar(car, aspect)
@@ -88,3 +88,27 @@ const downward = lightFactor([0, -1, 0])
 const away = lightFactor([-0.15, -0.9, 0.35])
 assert.ok(upward > downward, `up ${upward} down ${downward}`)
 assert.ok(upward > away, `up ${upward} away ${away}`)
+assert.ok(lightFactor([0, 1, 0], true) > upward)
+assert.equal(headlightAmount(straight.car, aheadLight, field, true), headlightAmount(straight.car, sideLight, field, true))
+
+function meshSpan(kind) {
+  const mesh = buildCarLocal(kind)
+  let maxY = -Infinity
+  let maxZ = -Infinity
+  const colors = new Set()
+  for (let i = 0; i < mesh.length; i += 10) {
+    maxY = Math.max(maxY, mesh[i + 1])
+    maxZ = Math.max(maxZ, mesh[i + 2])
+    colors.add(`${mesh[i + 6]},${mesh[i + 7]},${mesh[i + 8]}`)
+  }
+  return { maxY, maxZ, colors }
+}
+
+const hatch = meshSpan("hatch")
+const coupe = meshSpan("coupe")
+const wagon = meshSpan("wagon")
+assert.ok(hatch.colors.has("0.9,0.9,0.92"))
+assert.ok(coupe.colors.has("0.75,0.18,0.16"))
+assert.ok(coupe.maxZ > hatch.maxZ)
+assert.ok(wagon.colors.has("0.18,0.28,0.48"))
+assert.ok(wagon.maxY > hatch.maxY)

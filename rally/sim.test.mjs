@@ -13,6 +13,7 @@ assert.deepEqual(GEAR_PULL, [22, 18, 15, 12, 10, 8, 6])
 assert.equal(field.start.x, 0)
 assert.equal(field.start.z, 0)
 assert.equal(field.start.heading, 0)
+assert.equal(CAR_RADIUS, 1.1)
 assert.equal(field.maxX - field.minX, 180)
 assert.equal(field.maxZ - field.minZ, 180)
 

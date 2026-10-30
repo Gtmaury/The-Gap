@@ -4,7 +4,17 @@ export const ROUTE_AMP = 18
 export const CAR_RADIUS = 1.1
 export const PINE_RADIUS = 3
 export const ROCK_RADIUS = 1.4
-export const ROUTE_COLOR = [0.62, 0.48, 0.28]
+export const DASH = [0.86, 0.84, 0.78]
+export const ASPHALT = [0.22, 0.23, 0.25]
+export const SHOULDER = [0.45, 0.43, 0.38]
+
+export function roadColor(offset, z) {
+  const lat = Math.abs(offset)
+  if (lat > ROUTE_HALF) return null
+  if (lat <= 0.12 && Math.floor(z / 6) % 2 === 0) return DASH
+  if (lat <= 5.5) return ASPHALT
+  return SHOULDER
+}
 
 export function routeCenter(z) {
   return ROUTE_AMP * Math.sin((2 * Math.PI * z) / ROUTE_PERIOD)

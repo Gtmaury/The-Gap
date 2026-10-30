@@ -84,17 +84,65 @@ canvas {
   bottom: -6vh;
   width: 44vw;
   height: 78vh;
-  background: #6b5340;
+  background: #38393f;
   clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%);
 }
 
 #menu h1 {
   position: relative;
-  margin: 8vh 0 0 8vw;
+  margin: 6vh 0 0 8vw;
   font-size: 4.2rem;
   font-weight: 400;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.choices,
+.cars {
+  position: relative;
+  display: flex;
+  gap: 1.4rem;
+  margin: 3vh 8vw 0;
+}
+
+.choices button,
+.cars button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.choices button.is-selected,
+.cars button.is-selected {
+  box-shadow: inset 0 -3px 0 #f3ecdf;
+}
+
+.cars button {
+  width: 7.5rem;
+  padding: 0;
+}
+
+.silhouette {
+  display: block;
+  height: 3.4rem;
+  margin-bottom: 0.45rem;
+  background: #d9d3c4;
+}
+
+.silhouette.hatch {
+  clip-path: polygon(8% 72%, 20% 44%, 68% 44%, 90% 64%, 96% 74%, 96% 90%, 8% 90%);
+}
+
+.silhouette.coupe {
+  clip-path: polygon(2% 76%, 18% 58%, 72% 50%, 100% 66%, 100% 90%, 2% 90%);
+}
+
+.silhouette.wagon {
+  clip-path: polygon(6% 82%, 10% 30%, 46% 26%, 56% 52%, 94% 60%, 96% 90%, 6% 90%);
 }
 
 .places {

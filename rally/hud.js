@@ -10,13 +10,22 @@ export function queueShift(queued, code, repeat) {
 }
 
 export function initialSession() {
-  return { playing: false, placeIndex: null }
+  return { playing: false, placeIndex: null, day: false, car: "hatch" }
 }
 
-export function startPlace(index) {
-  return { playing: true, placeIndex: index }
+export function selectTime(session, day) {
+  return { ...session, day: Boolean(day) }
+}
+
+export function selectCar(session, car) {
+  const kind = car === "coupe" || car === "wagon" ? car : "hatch"
+  return { ...session, car: kind }
+}
+
+export function startPlace(index, session = initialSession()) {
+  return { ...session, playing: true, placeIndex: index }
 }
 
 export function stopForMenu(session) {
-  return { playing: false, placeIndex: session.placeIndex }
+  return { ...session, playing: false }
 }

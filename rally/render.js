@@ -1,5 +1,5 @@
 import { propsForChunk } from "./scenery.js"
-import { ROUTE_COLOR, ROUTE_HALF, routeCenter } from "./route.js"
+import { roadColor, routeCenter } from "./route.js"
 import { forward, gradeAlong, terrainHeight } from "./sim.js"
 
 const VERTEX = `
@@ -31,9 +31,13 @@ uniform vec2 uCar;
 uniform vec2 uNose;
 uniform float uHeightBase;
 uniform float uHeightAmp;
+uniform float uAmbient;
+uniform float uDiffuse;
+uniform vec3 uLight;
+uniform float uBeam;
 void main() {
-  vec3 light = normalize(vec3(0.25, 0.72, -0.45));
-  float lit = 0.15 + 0.55 * max(dot(normalize(vNormal), light), 0.0);
+  vec3 light = normalize(uLight);
+  float lit = uAmbient + uDiffuse * max(dot(normalize(vNormal), light), 0.0);
   vec3 color = vColor * mix(1.0, lit, vShade);
   vec2 delta = vWorld.xz - uCar;
   float along = dot(delta, uNose);
@@ -45,14 +49,25 @@ void main() {
   }
   float groundY = uHeightBase + uHeightAmp * sin(6.2831853 * vWorld.z / 180.0);
   float onGround = 1.0 - step(1.5, abs(vWorld.y - groundY));
-  color += vShade * onGround * head * vec3(0.85, 0.72, 0.45);
+  color += vShade * onGround * head * uBeam * vec3(0.85, 0.72, 0.45);
   gl_FragColor = vec4(min(color, vec3(1.0)), 1.0);
 }
 `
 
 const STRIDE = 10
 
-const SKY = [0.05, 0.06, 0.10]
+export const NIGHT = {
+  sky: [0.05, 0.06, 0.10],
+  ambient: 0.15,
+  diffuse: 0.55,
+  light: [0.25, 0.72, -0.45],
+}
+export const DAY = {
+  sky: [0.64, 0.76, 0.88],
+  ambient: 0.42,
+  diffuse: 0.75,
+  light: [0.15, 0.92, 0.2],
+}
 const PINE = [0.22, 0.22, 0.24]
 const ROCK = [0.16, 0.16, 0.17]
 const TAIL = [0.82, 0.08, 0.07]
@@ -100,15 +115,16 @@ function unit(x, y, z) {
   return [x / len, y / len, z / len]
 }
 
-const LIGHT = unit(0.25, 0.72, -0.45)
-
-export function lightFactor(normal) {
+export function lightFactor(normal, day = false) {
+  const sun = day ? DAY : NIGHT
+  const light = unit(sun.light[0], sun.light[1], sun.light[2])
   const n = unit(normal[0], normal[1], normal[2])
-  const dot = Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2])
-  return 0.15 + 0.55 * dot
+  const dot = Math.max(0, n[0] * light[0] + n[1] * light[1] + n[2] * light[2])
+  return sun.ambient + sun.diffuse * dot
 }
 
-export function headlightAmount(car, point, place) {
+export function headlightAmount(car, point, place, day = false) {
+  if (day) return 0
   const ground = terrainHeight(place, point.x, point.z)
   const y = point.y ?? ground
   if (Math.abs(y - ground) > 1.5) return 0
@@ -347,26 +363,26 @@ function buildTerrain(field, index) {
 }
 
 function buildRoute(field, index) {
-  const cells = 40
   const bounds = boundsOf(field)
   const span = bounds.maxZ - bounds.minZ
   const zBase = bounds.minZ + span * index
-  const dz = span / cells
+  const step = 6
+  const bands = [[-0.12, 0.12], [-5.5, -0.12], [0.12, 5.5], [-7, -5.5], [5.5, 7]]
   const data = []
-  for (let iz = 0; iz < cells; iz++) {
-    const z0 = zBase + iz * dz
-    const z1 = z0 + dz
-    const left0 = routeCenter(z0) - ROUTE_HALF
-    const right0 = routeCenter(z0) + ROUTE_HALF
-    const left1 = routeCenter(z1) - ROUTE_HALF
-    const right1 = routeCenter(z1) + ROUTE_HALF
-    const y = (x, z) => terrainHeight(field, x, z) + 0.05
-    const a = [left0, y(left0, z0), z0]
-    const b = [left1, y(left1, z1), z1]
-    const c = [right1, y(right1, z1), z1]
-    const d = [right0, y(right0, z0), z0]
-    pushTri(data, a, b, c, ROUTE_COLOR)
-    pushTri(data, a, c, d, ROUTE_COLOR)
+  for (let z0 = zBase; z0 < zBase + span - 1e-6; z0 += step) {
+    const z1 = Math.min(z0 + step, zBase + span)
+    for (const [near, far] of bands) {
+      const color = roadColor((near + far) / 2, z0)
+      const y = (x, z) => terrainHeight(field, x, z) + 0.05
+      const x0 = routeCenter(z0)
+      const x1 = routeCenter(z1)
+      const a = [x0 + near, y(x0 + near, z0), z0]
+      const b = [x1 + near, y(x1 + near, z1), z1]
+      const c = [x1 + far, y(x1 + far, z1), z1]
+      const d = [x0 + far, y(x0 + far, z0), z0]
+      pushTri(data, a, b, c, color)
+      pushTri(data, a, c, d, color)
+    }
   }
   return new Float32Array(data)
 }
@@ -409,13 +425,25 @@ function buildScenery(field, index) {
   return new Float32Array(data)
 }
 
-function buildCarLocal() {
+export function buildCarLocal(kind = "hatch") {
   const data = []
-  addBox(data, [-0.85, 0.45, -1.8], [0.85, 1.05, 1.9], BODY)
-  addBox(data, [-0.55, 0.62, -1.95], [-0.2, 0.92, -1.72], TAIL)
-  addBox(data, [0.2, 0.62, -1.95], [0.55, 0.92, -1.72], TAIL)
-  addBox(data, [-0.62, 1.05, -0.45], [0.62, 1.7, 1.05], [0.16, 0.2, 0.24])
   const wheel = [0.12, 0.12, 0.13]
+  if (kind === "coupe") {
+    addBox(data, [-0.8, 0.38, -1.7], [0.8, 0.92, 2.35], [0.75, 0.18, 0.16])
+    addBox(data, [-0.55, 0.62, -1.85], [-0.2, 0.88, -1.62], TAIL)
+    addBox(data, [0.2, 0.62, -1.85], [0.55, 0.88, -1.62], TAIL)
+    addBox(data, [-0.55, 0.92, -0.15], [0.55, 1.35, 1.2], [0.12, 0.14, 0.16])
+  } else if (kind === "wagon") {
+    addBox(data, [-0.88, 0.45, -1.8], [0.88, 1.05, 1.7], [0.18, 0.28, 0.48])
+    addBox(data, [-0.55, 0.62, -1.95], [-0.2, 0.92, -1.72], TAIL)
+    addBox(data, [0.2, 0.62, -1.95], [0.55, 0.92, -1.72], TAIL)
+    addBox(data, [-0.78, 1.05, -1.7], [0.78, 2.15, 0.2], [0.14, 0.2, 0.36])
+  } else {
+    addBox(data, [-0.85, 0.45, -1.8], [0.85, 1.05, 1.9], BODY)
+    addBox(data, [-0.55, 0.62, -1.95], [-0.2, 0.92, -1.72], TAIL)
+    addBox(data, [0.2, 0.62, -1.95], [0.55, 0.92, -1.72], TAIL)
+    addBox(data, [-0.62, 1.05, -0.45], [0.62, 1.7, 1.05], [0.16, 0.2, 0.24])
+  }
   for (const [x, z] of [[-0.95, -1.15], [0.95, -1.15], [-0.95, 1.2], [0.95, 1.2]]) {
     addPrism(data, x, 0.38, z, 0.38, 0.18, wheel)
   }
@@ -456,7 +484,12 @@ export function createView(canvas, gl) {
   const noseLoc = gl.getUniformLocation(program, "uNose")
   const heightBaseLoc = gl.getUniformLocation(program, "uHeightBase")
   const heightAmpLoc = gl.getUniformLocation(program, "uHeightAmp")
-  const carLocal = buildCarLocal()
+  const ambientLoc = gl.getUniformLocation(program, "uAmbient")
+  const diffuseLoc = gl.getUniformLocation(program, "uDiffuse")
+  const lightLoc = gl.getUniformLocation(program, "uLight")
+  const beamLoc = gl.getUniformLocation(program, "uBeam")
+  let time = NIGHT
+  let carLocal = buildCarLocal("hatch")
   const carBuffer = gl.createBuffer()
   let staticMeshes = []
   let chunkKey = ""
@@ -486,6 +519,12 @@ export function createView(canvas, gl) {
       chunkKey = ""
       eye = null
     },
+    setTime(day) {
+      time = day ? DAY : NIGHT
+    },
+    setCar(kind) {
+      carLocal = buildCarLocal(kind)
+    },
     draw(run, dt) {
       const width = Math.max(1, canvas.clientWidth)
       const height = Math.max(1, canvas.clientHeight)
@@ -510,7 +549,7 @@ export function createView(canvas, gl) {
         lookAt(eye, look, { x: 0, y: 1, z: 0 }),
       )
       gl.viewport(0, 0, canvas.width, canvas.height)
-      gl.clearColor(SKY[0], SKY[1], SKY[2], 1)
+      gl.clearColor(time.sky[0], time.sky[1], time.sky[2], 1)
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
       gl.enable(gl.DEPTH_TEST)
       gl.disable(gl.CULL_FACE)
@@ -521,6 +560,10 @@ export function createView(canvas, gl) {
       gl.uniform2f(noseLoc, face.x, face.z)
       gl.uniform1f(heightBaseLoc, activeField?.heightBase ?? 14)
       gl.uniform1f(heightAmpLoc, activeField?.heightAmp ?? 10)
+      gl.uniform1f(ambientLoc, time.ambient)
+      gl.uniform1f(diffuseLoc, time.diffuse)
+      gl.uniform3f(lightLoc, time.light[0], time.light[1], time.light[2])
+      gl.uniform1f(beamLoc, time === DAY ? 0 : 1)
       const indexes = chunksAround(run.car.z)
       const key = indexes.join(",")
       if (key !== chunkKey) {
