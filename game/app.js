@@ -206,6 +206,11 @@ function nav() {
     render();
   });
   bar.append(themeButton);
+  const skillet = document.createElement("a");
+  skillet.href = "skillet.html";
+  skillet.className = "ghost";
+  skillet.textContent = "Garden skillet";
+  bar.append(skillet);
   return bar;
 }
 

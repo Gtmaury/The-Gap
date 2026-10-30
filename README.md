@@ -14,10 +14,6 @@ The large collections use sentences from [Tatoeba](https://tatoeba.org) (CC BY 2
 
 ## Kitchen
 
-Garden skillet is a separate toy kitchen. The vocabulary game above is unchanged.
+Garden skillet is a separate toy kitchen. From The Gap, choose **Garden skillet**, or open `game/skillet.html` in the browser. That file plays on its own. `kitchen/index.html` is the same game.
 
-```
-python -m http.server 4174 --directory kitchen
-```
-
-Open http://127.0.0.1:4174/
+The vocabulary pages stay at the address above.

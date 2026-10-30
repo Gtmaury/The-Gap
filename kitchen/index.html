@@ -4,10 +4,588 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Garden skillet</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <style>
+:root {
+  color-scheme: light;
+  --cream: #f6e7c1;
+  --tomato: #e23d28;
+  --leaf: #3f8f4e;
+  --butter: #f2c14e;
+  --wood: #c9843f;
+  --outline: #5c3317;
+  background: var(--cream);
+  color: var(--outline);
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  line-height: 1.35;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--cream);
+}
+
+#app {
+  width: min(40rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+}
+
+.mark {
+  margin: 0 0 0.75rem;
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+[data-order] {
+  margin: 0.4rem 0 1rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.stations {
+  display: grid;
+  gap: 0.75rem;
+}
+
+button {
+  font: inherit;
+  font-weight: 800;
+  color: var(--outline);
+  background: var(--butter);
+  border: 4px solid var(--outline);
+  border-radius: 999px;
+  padding: 0.9rem 1.15rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: var(--cream);
+  cursor: not-allowed;
+}
+
+button:focus-visible {
+  outline: 4px solid var(--outline);
+  outline-offset: 3px;
+}
+
+[data-plate] {
+  margin: 1.25rem 0 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+}
+
+#playfield {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+}
+
+[data-timer-label] {
+  margin: 0.6rem 0 0;
+  font-weight: 800;
+}
+
+[data-screen="beat"] {
+  min-height: 70vh;
+  display: grid;
+  place-items: center;
+}
+
+    </style>
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="./app.js"></script>
+    <script>
+(() => {
+  // kitchen/kit.js
+  var FILLS = {
+    cream: "#f6e7c1",
+    tomato: "#e23d28",
+    leaf: "#3f8f4e",
+    butter: "#f2c14e",
+    wood: "#c9843f"
+  };
+  var OUTLINE = "#5c3317";
+  var STROKE_WIDTH = 4;
+  var SHAPES = ["circle", "wedge", "strip"];
+  function buildShape(kind) {
+    if (!SHAPES.includes(kind)) throw new Error(`Unknown shape: ${kind}`);
+    return {
+      kind,
+      highlight: { part: "highlight" },
+      shadow: { part: "shadow" }
+    };
+  }
+  function paint(fill) {
+    return `fill="${fill}" stroke="${OUTLINE}" stroke-width="${STROKE_WIDTH}" stroke-linejoin="round"`;
+  }
+  function shapeMarkup(kind, { x, y, fill }) {
+    buildShape(kind);
+    if (kind === "circle") {
+      return `
+      <ellipse data-part="shadow" cx="${x}" cy="${y + 12}" rx="38" ry="14" ${paint(FILLS.wood)}/>
+      <circle data-part="body" cx="${x}" cy="${y}" r="36" ${paint(fill)}/>
+      <ellipse data-part="highlight" cx="${x - 12}" cy="${y - 12}" rx="12" ry="7" ${paint(FILLS.cream)}/>
+    `;
+    }
+    if (kind === "strip") {
+      return `
+      <rect data-part="shadow" x="${x - 44}" y="${y - 6}" width="96" height="24" rx="12" ${paint(FILLS.wood)}/>
+      <rect data-part="body" x="${x - 50}" y="${y - 16}" width="100" height="28" rx="14" ${paint(fill)}/>
+      <rect data-part="highlight" x="${x - 34}" y="${y - 12}" width="30" height="8" rx="4" ${paint(FILLS.cream)}/>
+    `;
+    }
+    return `
+    <path data-part="shadow" d="M ${x} ${y + 10} L ${x + 52} ${y + 30} A 52 52 0 0 1 ${x - 18} ${y + 40} Z" ${paint(FILLS.wood)}/>
+    <path data-part="body" d="M ${x} ${y} L ${x + 50} ${y + 16} A 50 50 0 0 1 ${x - 22} ${y + 26} Z" ${paint(fill)}/>
+    <path data-part="highlight" d="M ${x + 8} ${y + 6} L ${x + 24} ${y + 12} L ${x + 10} ${y + 18} Z" ${paint(FILLS.cream)}/>
+  `;
+  }
+  var line = `fill="none" stroke="${OUTLINE}" stroke-width="${STROKE_WIDTH}" stroke-linecap="round"`;
+  function mitten(x) {
+    return `
+    <g transform="translate(${x} 0)">
+      <rect x="14" y="28" width="52" height="64" rx="24" ${paint(FILLS.butter)}/>
+      <ellipse cx="18" cy="50" rx="14" ry="16" ${paint(FILLS.butter)}/>
+      <ellipse cx="40" cy="46" rx="12" ry="7" ${paint(FILLS.cream)}/>
+    </g>
+  `;
+  }
+  var HANDS = `${mitten(0)}${mitten(96)}`;
+  var POSE_TRANSFORM = {
+    rest: "translate(176 78)",
+    acting: "translate(214 118)",
+    "follow-through": "translate(150 48)"
+  };
+  function handsMarkup(pose) {
+    const transform = POSE_TRANSFORM[pose];
+    if (!transform) throw new Error(`Unknown pose: ${pose}`);
+    return `<g id="hands" data-hands data-pose="${pose}" transform="${transform}">${HANDS}</g>`;
+  }
+  var MOUTHS = {
+    waiting: `<path data-mouth d="M70 124 Q100 142 130 124" ${line}/>`,
+    proud: `<ellipse data-mouth cx="100" cy="128" rx="26" ry="16" ${paint(FILLS.cream)}/>`,
+    pleased: `<path data-mouth d="M66 118 Q100 152 134 118" ${line}/>`,
+    upset: `<path data-mouth d="M70 142 Q100 116 130 142" ${line}/>`
+  };
+  function faceMarkup(expression) {
+    if (!MOUTHS[expression]) throw new Error(`Unknown expression: ${expression}`);
+    const eyes = expression === "proud" ? `<path data-eye d="M56 88 Q72 74 88 88" ${line}/><path data-eye d="M112 88 Q128 74 144 88" ${line}/>` : `<circle data-eye cx="72" cy="90" r="8" ${paint(FILLS.tomato)}/><circle data-eye cx="128" cy="90" r="8" ${paint(FILLS.tomato)}/>`;
+    const brows = expression === "upset" ? `<path data-brow d="M52 70 L90 80" ${line}/><path data-brow d="M148 70 L110 80" ${line}/>` : "";
+    return `
+    <g data-face data-expression="${expression}">
+      <circle cx="100" cy="104" r="78" ${paint(FILLS.butter)}/>
+      <path d="M34 78 Q100 18 166 78 L148 52 Q100 28 52 52 Z" ${paint(FILLS.tomato)}/>
+      <circle cx="64" cy="116" r="10" ${paint(FILLS.tomato)}/>
+      <circle cx="136" cy="116" r="10" ${paint(FILLS.tomato)}/>
+      ${eyes}
+      ${brows}
+      ${MOUTHS[expression]}
+    </g>
+  `;
+  }
+
+  // kitchen/play.js
+  var ORDER_NAME = "garden skillet";
+  var STATIONS = ["chop", "stir", "flip"];
+  var CHOP_LIMIT_MS = 8e3;
+  var CHOP_MARKS = [292, 320, 348];
+  var STIR_LIMIT_MS = 6e3;
+  var STIR_CENTER = { x: 320, y: 220 };
+  var STIR_RADIUS = 78;
+  var STIR_TOLERANCE = 0.12;
+  var FLIP_LIMIT_MS = 5e3;
+  var FLIP_WINDOW_START_MS = 2500;
+  var FLIP_WINDOW_MS = 400;
+  var FLIP_MIN_PX = 40;
+  var PAN = { cx: 320, cy: 292, rx: 128, ry: 40 };
+  var BEAT_MS = 900;
+  function openService() {
+    return {
+      screen: "hub",
+      grades: { chop: null, stir: null, flip: null },
+      beat: null
+    };
+  }
+  function canStart(state, station) {
+    if (state.screen !== "hub") return false;
+    if (station === "chop") return !state.grades.chop;
+    if (station === "stir") return Boolean(state.grades.chop) && !state.grades.stir;
+    if (station === "flip") return Boolean(state.grades.stir) && !state.grades.flip;
+    return false;
+  }
+  function startStation(state, station) {
+    if (!canStart(state, station)) return state;
+    return { ...state, screen: station, beat: null };
+  }
+  function plateRating(grades) {
+    const values = STATIONS.map((station) => grades[station]);
+    if (values.some((grade) => !grade)) return null;
+    if (values.every((grade) => grade === "perfect")) return "perfect";
+    if (values.some((grade) => grade === "miss")) return "miss";
+    return "good";
+  }
+  function faceFor(grade) {
+    if (grade === "perfect") return "proud";
+    if (grade === "good") return "pleased";
+    if (grade === "miss") return "upset";
+    return "waiting";
+  }
+  function applyGrade(state, station, grade) {
+    const grades = { ...state.grades };
+    if (!grades[station]) grades[station] = grade;
+    return {
+      ...state,
+      grades,
+      screen: "beat",
+      beat: { station, face: faceFor(grades[station]) }
+    };
+  }
+  function finishBeat(state) {
+    return { ...state, screen: "hub", beat: null };
+  }
+  function crossings(path, marks) {
+    const seen = /* @__PURE__ */ new Set();
+    const order = [];
+    for (let i = 1; i < path.length; i += 1) {
+      const from = path[i - 1];
+      const to = path[i];
+      const dx = to.x - from.x;
+      if (dx === 0) continue;
+      const hits = [];
+      for (const mark of marks) {
+        if (seen.has(mark) || from.x === mark) continue;
+        const min = Math.min(from.x, to.x);
+        const max = Math.max(from.x, to.x);
+        if (mark < min || mark > max) continue;
+        hits.push({ mark, t: (mark - from.x) / dx });
+      }
+      hits.sort((a, b) => a.t - b.t);
+      for (const hit of hits) {
+        seen.add(hit.mark);
+        order.push(hit.mark);
+      }
+    }
+    return order;
+  }
+  function gradeChop(path, elapsedMs) {
+    const order = crossings(path, CHOP_MARKS);
+    if (order.length < CHOP_MARKS.length) {
+      return elapsedMs >= CHOP_LIMIT_MS ? "miss" : null;
+    }
+    if (elapsedMs >= CHOP_LIMIT_MS) return "miss";
+    const perfect = CHOP_MARKS.every((mark, index) => order[index] === mark);
+    return perfect ? "perfect" : "good";
+  }
+  function sweep(path) {
+    let clockwise = 0;
+    let counter = 0;
+    let offGuide = false;
+    for (let i = 1; i < path.length; i += 1) {
+      const from = path[i - 1];
+      const to = path[i];
+      const a = Math.atan2(from.y - STIR_CENTER.y, from.x - STIR_CENTER.x);
+      const b = Math.atan2(to.y - STIR_CENTER.y, to.x - STIR_CENTER.x);
+      let delta = b - a;
+      if (delta > Math.PI) delta -= Math.PI * 2;
+      if (delta < -Math.PI) delta += Math.PI * 2;
+      if (delta >= 0) clockwise += delta;
+      else counter -= delta;
+      const radius = Math.hypot(to.x - STIR_CENTER.x, to.y - STIR_CENTER.y);
+      if (Math.abs(radius - STIR_RADIUS) / STIR_RADIUS > STIR_TOLERANCE) offGuide = true;
+    }
+    return { clockwise, counter, offGuide };
+  }
+  function gradeStir(path, elapsedMs) {
+    const turn = sweep(path);
+    const full = Math.PI * 2 - 0.05;
+    const clockwise = turn.clockwise >= full && turn.counter < 0.35;
+    const anyFull = turn.clockwise >= full || turn.counter >= full;
+    if (!anyFull) return elapsedMs >= STIR_LIMIT_MS ? "miss" : null;
+    if (elapsedMs >= STIR_LIMIT_MS) return "miss";
+    if (clockwise && !turn.offGuide) return "perfect";
+    return "good";
+  }
+  function inPan(point) {
+    const dx = (point.x - PAN.cx) / PAN.rx;
+    const dy = (point.y - PAN.cy) / PAN.ry;
+    return dx * dx + dy * dy <= 1;
+  }
+  function gradeFlip(gesture, elapsedMs) {
+    const released = gesture?.up;
+    if (!released) return elapsedMs >= FLIP_LIMIT_MS ? "miss" : null;
+    const dy = gesture.down.y - gesture.up.y;
+    const dx = Math.abs(gesture.up.x - gesture.down.x);
+    const dt = gesture.dt;
+    const flicked = gesture.down.inPan && dt > 0 && dy >= FLIP_MIN_PX && dy / dt > dx / dt;
+    if (!flicked) return elapsedMs >= FLIP_LIMIT_MS ? "miss" : null;
+    if (gesture.releaseAt >= FLIP_LIMIT_MS) return "miss";
+    const windowEnd = FLIP_WINDOW_START_MS + FLIP_WINDOW_MS;
+    if (gesture.releaseAt >= FLIP_WINDOW_START_MS && gesture.releaseAt < windowEnd) return "perfect";
+    return "good";
+  }
+
+  // kitchen/app.js
+  var LIMITS = { chop: CHOP_LIMIT_MS, stir: STIR_LIMIT_MS, flip: FLIP_LIMIT_MS };
+  var HINTS = {
+    chop: "Drag across the three cuts, left to right.",
+    stir: "Trace the circle clockwise.",
+    flip: "Flick up from the pan as the bar reaches the red mark."
+  };
+  function paint2(fill) {
+    return `fill="${fill}" stroke="${OUTLINE}" stroke-width="${STROKE_WIDTH}" stroke-linejoin="round"`;
+  }
+  var TIMER = { x: 168, y: 28, width: 304, height: 16 };
+  function timerMarkup(station) {
+    const limit = LIMITS[station];
+    const windowMark = station === "flip" ? `<rect data-flip-window x="${TIMER.x + TIMER.width * (FLIP_WINDOW_START_MS / limit)}" y="${TIMER.y - 4}" width="${TIMER.width * (FLIP_WINDOW_MS / limit)}" height="${TIMER.height + 8}" rx="6" ${paint2(FILLS.tomato)}/>` : "";
+    return `
+    <g data-timer>
+      <rect x="${TIMER.x - 4}" y="${TIMER.y - 4}" width="${TIMER.width + 8}" height="${TIMER.height + 8}" rx="12" ${paint2(FILLS.wood)}/>
+      <rect data-timer-fill data-full="${TIMER.width}" x="${TIMER.x}" y="${TIMER.y}" width="${TIMER.width}" height="${TIMER.height}" rx="8" ${paint2(FILLS.butter)}/>
+      ${windowMark}
+    </g>
+  `;
+  }
+  function scene(station) {
+    if (station === "chop") {
+      return `
+      <g data-ingredient="vegetable">
+        ${shapeMarkup("circle", { x: 320, y: 236, fill: FILLS.tomato })}
+        ${CHOP_MARKS.map((mark) => `<line data-mark x1="${mark}" y1="204" x2="${mark}" y2="268" fill="none" stroke="${OUTLINE}" stroke-width="${STROKE_WIDTH}"/>`).join("")}
+      </g>
+      <g data-tool="knife" data-tool-move transform="translate(150 236)">
+        <rect x="0" y="-8" width="108" height="16" rx="6" ${paint2(FILLS.cream)}/>
+        <rect x="92" y="-14" width="30" height="28" rx="8" ${paint2(FILLS.wood)}/>
+        <rect x="10" y="-5" width="40" height="6" rx="3" ${paint2(FILLS.butter)}/>
+      </g>
+    `;
+    }
+    if (station === "stir") {
+      const x = STIR_CENTER.x;
+      const y = STIR_CENTER.y;
+      return `
+      <g data-tool="pot">
+        <rect x="${x - 130}" y="${y + 8}" width="26" height="18" rx="6" ${paint2(FILLS.wood)}/>
+        <rect x="${x + 104}" y="${y + 8}" width="26" height="18" rx="6" ${paint2(FILLS.wood)}/>
+        <circle cx="${x}" cy="${y}" r="112" ${paint2(FILLS.wood)}/>
+        <circle cx="${x}" cy="${y}" r="88" ${paint2(FILLS.cream)}/>
+        <circle data-guide cx="${x}" cy="${y}" r="${STIR_RADIUS}" fill="none" stroke="${OUTLINE}" stroke-width="${STROKE_WIDTH}"/>
+        <polygon data-direction="clockwise" points="${x + STIR_RADIUS - 8},${y - 4} ${x + STIR_RADIUS + 14},${y + 10} ${x + STIR_RADIUS - 8},${y + 18}" ${paint2(FILLS.butter)}/>
+      </g>
+      <g data-ingredient="soup">
+        ${shapeMarkup("circle", { x, y, fill: FILLS.tomato })}
+      </g>
+    `;
+    }
+    return `
+    <g data-tool="pan">
+      <rect x="${PAN.cx + PAN.rx - 10}" y="${PAN.cy - 8}" width="86" height="16" rx="8" ${paint2(FILLS.wood)}/>
+      <ellipse cx="${PAN.cx}" cy="${PAN.cy}" rx="${PAN.rx}" ry="${PAN.ry}" ${paint2(FILLS.wood)}/>
+      <ellipse cx="${PAN.cx}" cy="${PAN.cy}" rx="${PAN.rx - 16}" ry="${PAN.ry - 12}" ${paint2(FILLS.cream)}/>
+    </g>
+    <g data-ingredient="skillet">
+      ${shapeMarkup("strip", { x: PAN.cx, y: PAN.cy, fill: FILLS.butter })}
+    </g>
+  `;
+  }
+  function stationMarkup(station, pose) {
+    return `
+    <main data-screen="${station}">
+      <p class="mark">${HINTS[station]}</p>
+      <svg id="playfield" viewBox="0 0 640 400" width="640" height="400" role="img" aria-label="${station}">
+        <rect data-backdrop x="0" y="0" width="640" height="400" fill="${FILLS.cream}" stroke="none"/>
+        <rect data-counter x="24" y="292" width="592" height="84" rx="20" ${paint2(FILLS.wood)}/>
+        ${timerMarkup(station)}
+        ${scene(station)}
+        ${handsMarkup(pose)}
+      </svg>
+      <p data-timer-label>${LIMITS[station] / 1e3}s</p>
+    </main>
+  `;
+  }
+  function beatMarkup(expression) {
+    return `
+    <main data-screen="beat">
+      <svg viewBox="0 0 200 200" width="280" height="280" role="img" aria-label="${expression} cook">
+        ${faceMarkup(expression)}
+      </svg>
+    </main>
+  `;
+  }
+  function hubMarkup(state) {
+    const rating = plateRating(state.grades);
+    const buttons = STATIONS.map((station) => {
+      const grade = state.grades[station];
+      const name = station[0].toUpperCase() + station.slice(1);
+      const ready = canStart(state, station);
+      const label = grade ? `${name} \xB7 ${grade}` : ready ? `Play ${name}` : name;
+      return `<button type="button" data-station="${station}" ${ready ? "" : "disabled"}>${label}</button>`;
+    }).join("");
+    return `
+    <main data-screen="hub">
+      <p class="mark">Garden skillet</p>
+      <svg viewBox="0 0 200 200" width="220" height="220" role="img" aria-label="Waiting cook">
+        ${faceMarkup("waiting")}
+      </svg>
+      <p data-order>${ORDER_NAME}</p>
+      <p>Press Play Chop. Stir and Flip open after each station.</p>
+      <div class="stations">${buttons}</div>
+      <p data-plate>${rating ? `${rating} plate` : "Plate waiting"}</p>
+    </main>
+  `;
+  }
+  function applyTokens(root) {
+    const node = root.ownerDocument.documentElement;
+    for (const [name, value] of Object.entries(FILLS)) node.style.setProperty(`--${name}`, value);
+    node.style.setProperty("--outline", OUTLINE);
+  }
+  function mount(root) {
+    applyTokens(root);
+    let state = openService();
+    let path = [];
+    let down = null;
+    let startedAt = 0;
+    let frame = 0;
+    let beatTimer = 0;
+    let pose = "rest";
+    let live = false;
+    function draw() {
+      cancelAnimationFrame(frame);
+      if (state.screen !== "beat") pose = "rest";
+      if (state.screen === "hub") root.innerHTML = hubMarkup(state);
+      else if (state.screen === "beat") root.innerHTML = beatMarkup(state.beat.face);
+      else root.innerHTML = stationMarkup(state.screen, pose);
+      bind();
+      if (LIMITS[state.screen]) {
+        path = [];
+        down = null;
+        pose = "rest";
+        startedAt = performance.now();
+        live = true;
+        frame = requestAnimationFrame(tick);
+      } else {
+        live = false;
+      }
+    }
+    function bind() {
+      for (const button of root.querySelectorAll("[data-station]")) {
+        button.addEventListener("click", () => {
+          const next = startStation(state, button.dataset.station);
+          if (next === state) return;
+          state = next;
+          draw();
+        });
+      }
+      const field = root.querySelector("#playfield");
+      if (!field) return;
+      field.addEventListener("pointerdown", onDown);
+      field.addEventListener("pointermove", onMove);
+      field.addEventListener("pointerup", onUp);
+      field.addEventListener("pointercancel", onUp);
+    }
+    function pointOf(event) {
+      const field = root.querySelector("#playfield");
+      const svgPoint = field.createSVGPoint();
+      svgPoint.x = event.clientX;
+      svgPoint.y = event.clientY;
+      const local = svgPoint.matrixTransform(field.getScreenCTM().inverse());
+      return { x: local.x, y: local.y };
+    }
+    function onDown(event) {
+      if (!live) return;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      const point = pointOf(event);
+      down = { ...point, at: performance.now(), inPan: inPan(point) };
+      path = [down];
+      setPose("acting");
+      moveTool(point);
+    }
+    function onMove(event) {
+      if (!down || !live) return;
+      const point = pointOf(event);
+      path.push(point);
+      moveTool(point);
+    }
+    function onUp(event) {
+      if (!down || !live) return;
+      const point = pointOf(event);
+      path.push(point);
+      const elapsed = performance.now() - startedAt;
+      const station = state.screen;
+      let grade = null;
+      if (station === "flip") {
+        grade = gradeFlip({
+          down,
+          up: point,
+          dt: performance.now() - down.at,
+          releaseAt: elapsed
+        }, elapsed);
+      } else if (station === "chop") grade = gradeChop(path, elapsed);
+      else if (station === "stir") grade = gradeStir(path, elapsed);
+      down = null;
+      setPose("follow-through");
+      if (grade) settle(grade);
+    }
+    function tick(now) {
+      if (!live) return;
+      const station = state.screen;
+      const elapsed = now - startedAt;
+      paintTimer(elapsed, LIMITS[station]);
+      let grade = null;
+      if (station === "chop") grade = gradeChop(path, elapsed);
+      else if (station === "stir") grade = gradeStir(path, elapsed);
+      else grade = gradeFlip(down ? { down } : { down: { inPan: false } }, elapsed);
+      if (grade) {
+        settle(grade);
+        return;
+      }
+      frame = requestAnimationFrame(tick);
+    }
+    function settle(grade) {
+      if (!live) return;
+      live = false;
+      cancelAnimationFrame(frame);
+      state = applyGrade(state, state.screen, grade);
+      clearTimeout(beatTimer);
+      draw();
+      beatTimer = setTimeout(() => {
+        state = finishBeat(state);
+        draw();
+      }, BEAT_MS);
+    }
+    function setPose(next) {
+      pose = next;
+      const hands = root.querySelector("[data-hands]");
+      if (!hands) return;
+      const holder = root.ownerDocument.createElement("template");
+      holder.innerHTML = handsMarkup(next).trim();
+      hands.replaceWith(holder.content.firstElementChild);
+    }
+    function moveTool(point) {
+      const tool = root.querySelector("[data-tool-move]");
+      if (tool) tool.setAttribute("transform", `translate(${point.x} ${point.y})`);
+    }
+    function paintTimer(elapsed, limit) {
+      const bar = root.querySelector("[data-timer-fill]");
+      if (bar) bar.setAttribute("width", String(Math.max(0, TIMER.width * (1 - elapsed / limit))));
+      const label = root.querySelector("[data-timer-label]");
+      if (label) label.textContent = `${Math.ceil(Math.max(0, limit - elapsed) / 1e3)}s`;
+    }
+    draw();
+  }
+  if (typeof document !== "undefined") {
+    const root = document.querySelector("#app");
+    if (root) mount(root);
+  }
+})();
+
+    </script>
   </body>
 </html>

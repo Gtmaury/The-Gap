@@ -132,8 +132,10 @@ export function hubMarkup(state) {
   const rating = plateRating(state.grades);
   const buttons = STATIONS.map((station) => {
     const grade = state.grades[station];
-    const label = station[0].toUpperCase() + station.slice(1);
-    return `<button type="button" data-station="${station}" ${canStart(state, station) ? "" : "disabled"}>${label}${grade ? ` · ${grade}` : ""}</button>`;
+    const name = station[0].toUpperCase() + station.slice(1);
+    const ready = canStart(state, station);
+    const label = grade ? `${name} · ${grade}` : ready ? `Play ${name}` : name;
+    return `<button type="button" data-station="${station}" ${ready ? "" : "disabled"}>${label}</button>`;
   }).join("");
   return `
     <main data-screen="hub">
@@ -142,6 +144,7 @@ export function hubMarkup(state) {
         ${faceMarkup("waiting")}
       </svg>
       <p data-order>${ORDER_NAME}</p>
+      <p>Press Play Chop. Stir and Flip open after each station.</p>
       <div class="stations">${buttons}</div>
       <p data-plate>${rating ? `${rating} plate` : "Plate waiting"}</p>
     </main>

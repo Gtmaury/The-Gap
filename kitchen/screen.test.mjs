@@ -44,6 +44,6 @@ for (const station of ["chop", "stir", "flip"]) {
 }
 
 const page = readFileSync(new URL("./index.html", import.meta.url), "utf8");
-assert.match(page, /styles\.css/);
-assert.match(page, /app\.js/);
+assert.match(page, /garden skillet/i);
+assert.doesNotMatch(page, /type="module"/);
 assert.equal(/dining room|customer/i.test(page), false);
