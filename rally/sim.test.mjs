@@ -14,6 +14,7 @@ assert.equal(field.start.x, 0)
 assert.equal(field.start.z, 0)
 assert.equal(field.start.heading, 0)
 assert.equal(CAR_RADIUS, 1.1)
+assert.equal(PINE_RADIUS, 3)
 assert.equal(field.maxX - field.minX, 180)
 assert.equal(field.maxZ - field.minZ, 180)
 

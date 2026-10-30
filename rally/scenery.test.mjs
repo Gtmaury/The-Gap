@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
+import { buildRoute, buildTerrain } from "./render.js"
 import { propsForChunk } from "./scenery.js"
 import { ASPHALT, DASH, ROUTE_HALF, SHOULDER, roadColor, routeCenter, routeClearance, solidRadius } from "./route.js"
 import { field, places } from "./stages.js"
@@ -63,6 +64,23 @@ assert.deepEqual(roadColor(0, 0), DASH)
 assert.deepEqual(roadColor(0, 6), ASPHALT)
 assert.match(css, /\.road[\s\S]*#38393f/)
 assert.equal(routeClearance("pine") > routeClearance("rock"), true)
+
+function coversZ(mesh, z) {
+  let below = false
+  let above = false
+  for (let i = 2; i < mesh.length; i += 10) {
+    if (mesh[i] < z - 1e-6) below = true
+    if (mesh[i] > z + 1e-6) above = true
+  }
+  return below && above
+}
+
+for (const index of [0, 1]) {
+  for (const z of [86, 94]) {
+    assert.equal(coversZ(buildTerrain(field, index), z), true, `ground ${index} ${z}`)
+    assert.equal(coversZ(buildRoute(field, index), z), true, `road ${index} ${z}`)
+  }
+}
 
 const sim = readFileSync(new URL("./sim.js", import.meta.url), "utf8")
 assert.equal(sim.includes("scenery"), false)

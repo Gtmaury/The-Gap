@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { createRun, forward, terrainHeight } from "./sim.js"
-import { field } from "./stages.js"
-import { buildCarLocal, carPoint, chunksAround, headlightAmount, lightFactor, projectCar, projectPoint, viewPose } from "./render.js"
+import { field, places } from "./stages.js"
+import { buildCarLocal, buildScenery, carPoint, chunksAround, headlightAmount, lightFactor, pineMesh, projectCar, projectPoint, viewPose } from "./render.js"
 
 function inLowerHalf(car, aspect) {
   const ndc = projectCar(car, aspect)
@@ -112,3 +112,40 @@ assert.ok(coupe.colors.has("0.75,0.18,0.16"))
 assert.ok(coupe.maxZ > hatch.maxZ)
 assert.ok(wagon.colors.has("0.18,0.28,0.48"))
 assert.ok(wagon.maxY > hatch.maxY)
+
+function pineColors(place) {
+  const mesh = pineMesh(place)
+  let maxY = -Infinity
+  let capY = -Infinity
+  const colors = new Set()
+  for (let i = 0; i < mesh.length; i += 10) {
+    const y = mesh[i + 1]
+    const color = `${mesh[i + 6]},${mesh[i + 7]},${mesh[i + 8]}`
+    maxY = Math.max(maxY, y)
+    colors.add(color)
+    if (color === "0.92,0.93,0.9") capY = Math.max(capY, y)
+  }
+  return { maxY, capY, colors }
+}
+
+const snowPine = pineColors(field)
+const forestPlace = places.find((place) => place.id === "night-forest")
+const forestPine = pineColors(forestPlace)
+assert.ok(snowPine.colors.has("0.16,0.32,0.2"))
+assert.ok(snowPine.colors.has("0.92,0.93,0.9"))
+assert.equal(snowPine.capY, snowPine.maxY)
+assert.ok(forestPine.colors.has("0.28,0.16,0.1"))
+assert.ok(forestPine.colors.has("0.1,0.28,0.12"))
+assert.ok(forestPine.colors.has("0.18,0.4,0.16"))
+assert.equal(forestPine.colors.has("0.92,0.93,0.9"), false)
+const rockPlace = places.find((place) => place.id === "night-rock")
+const rockMesh = buildScenery(rockPlace, 0)
+let rockStone = false
+let rockCap = false
+for (let i = 6; i < rockMesh.length; i += 10) {
+  const [r, g, b] = [rockMesh[i], rockMesh[i + 1], rockMesh[i + 2]]
+  if (Math.abs(r - 0.16) < 1e-5 && Math.abs(g - 0.16) < 1e-5 && Math.abs(b - 0.17) < 1e-5) rockStone = true
+  if (Math.abs(r - 0.92) < 1e-5 && Math.abs(g - 0.93) < 1e-5 && Math.abs(b - 0.9) < 1e-5) rockCap = true
+}
+assert.equal(rockStone, true)
+assert.equal(rockCap, false)
