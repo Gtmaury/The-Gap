@@ -22,7 +22,7 @@
 
 ### Paint patches in the ground mesh
 
-`stages.js` gains `patch` next to `ground`: snow `[0.72, 0.78, 0.84]`, forest `[0.06, 0.10, 0.07]`, rock `[0.18, 0.18, 0.20]`. In `buildTerrain`, a cell whose `ix % 8 === 0` uses `patch`. The other cells use `ground`. Forty columns include both, so chunk 0 cannot be one color. The road is a separate mesh and still calls `roadColor`.
+`stages.js` gains `patch` next to `ground`: snow `[0.72, 0.78, 0.84]`, forest `[0.06, 0.10, 0.07]`, rock `[0.18, 0.18, 0.20]`. In `buildTerrain`, a cell uses `patch` when a hash of its column and row modulo 7 is 0. The other cells use `ground`. A full column would paint a stripe down the hill, so the hash scatters the cells. The grid is large enough that chunk 0 contains both colors. The road is a separate mesh and still calls `roadColor`.
 
 Alternative: choose the patch in the fragment shader. The vertices already carry a color, and the tests read that color without WebGL.
 

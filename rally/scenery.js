@@ -19,7 +19,13 @@ function seedFrom(field) {
   return h >>> 0
 }
 
-export function propsForChunk(field, index) {
+const COVER = {
+  "night-snow": [["mound", 24], ["shrub", 16]],
+  "night-forest": [["undergrowth", 40], ["stump", 12]],
+  "night-rock": [["rubble", 28]],
+}
+
+function spotsForChunk(field, index) {
   const seed = seedFrom(field)
   const spots = []
   const columns = 24
@@ -38,16 +44,41 @@ export function propsForChunk(field, index) {
     }
   }
   spots.sort((a, b) => a.jitter - b.jitter || a.x - b.x || a.z - b.z)
+  return spots
+}
+
+export function propsForChunk(field, index) {
+  const spots = spotsForChunk(field, index)
   const props = []
   for (const spot of spots) {
-    if (props.length < field.count) props.push({ x: spot.x, z: spot.z, kind: field.kind })
-    else break
+    if (props.length < field.count) {
+      props.push({ x: spot.x, z: spot.z, kind: field.kind, height: props.length % 3 })
+    } else break
   }
   if (props.length !== field.count) {
     throw new Error(`field ${field.id} chunk ${index} has ${props.length} scenery spots`)
   }
   if (index === 0 && !props.some((prop) => prop.z > field.start.z)) {
     throw new Error(`field ${field.id} has no scenery ahead of the start`)
+  }
+  return props
+}
+
+export function coverForChunk(field, index) {
+  const plan = COVER[field.id]
+  const need = plan.reduce((sum, [, count]) => sum + count, 0)
+  const spare = spotsForChunk(field, index).slice(field.count, field.count + need)
+  if (spare.length !== need) {
+    throw new Error(`field ${field.id} chunk ${index} has ${spare.length} cover spots`)
+  }
+  const props = []
+  let cursor = 0
+  for (const [kind, count] of plan) {
+    for (let i = 0; i < count; i++) {
+      const spot = spare[cursor]
+      cursor += 1
+      props.push({ x: spot.x, z: spot.z, kind })
+    }
   }
   return props
 }
