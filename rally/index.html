@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Low Poly Rally</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23c0392b'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <p id="fallback" hidden>This browser cannot display the rally.</p>
+    <canvas id="view" hidden></canvas>
+    <section id="list">
+      <h1>Low Poly Rally</h1>
+      <p>Choose a stage. Drive with W, A, S, and D.</p>
+    </section>
+    <div id="hud" hidden>
+      <p id="time"></p>
+      <p id="off" hidden>OFF COURSE</p>
+      <button id="restart" type="button">Restart</button>
+      <button id="back" type="button">Back</button>
+    </div>
+    <section id="result" hidden>
+      <h1 id="result-name"></h1>
+      <p>Stage <span id="result-stage"></span></p>
+      <p>Penalty <span id="result-penalty"></span></p>
+      <p>Total <span id="result-total"></span></p>
+      <button id="result-restart" type="button">Restart</button>
+      <button id="result-back" type="button">Back</button>
+    </section>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
