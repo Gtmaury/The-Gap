@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { propsForChunk } from "./scenery.js"
-import { ROUTE_HALF, routeCenter, routeClearance, solidRadius } from "./route.js"
+import { ASPHALT, DASH, ROUTE_HALF, SHOULDER, roadColor, routeCenter, routeClearance, solidRadius } from "./route.js"
 import { field, places } from "./stages.js"
 
 const first = propsForChunk(field, 0)
@@ -53,9 +53,15 @@ for (const place of places) {
 }
 const routeSource = readFileSync(new URL("./route.js", import.meta.url), "utf8")
 const render = readFileSync(new URL("./render.js", import.meta.url), "utf8")
-assert.equal(routeSource.includes("0.62, 0.48, 0.28"), true)
+const css = readFileSync(new URL("./styles.css", import.meta.url), "utf8")
+assert.equal(routeSource.includes("0.62, 0.48, 0.28"), false)
+assert.equal(render.includes("0.62, 0.48, 0.28"), false)
 assert.equal(render.includes("buildRoute"), true)
-assert.equal(render.includes("ROUTE_COLOR"), true)
+assert.deepEqual(roadColor(6, 0), SHOULDER)
+assert.deepEqual(roadColor(3, 0), ASPHALT)
+assert.deepEqual(roadColor(0, 0), DASH)
+assert.deepEqual(roadColor(0, 6), ASPHALT)
+assert.match(css, /\.road[\s\S]*#38393f/)
 assert.equal(routeClearance("pine") > routeClearance("rock"), true)
 
 const sim = readFileSync(new URL("./sim.js", import.meta.url), "utf8")

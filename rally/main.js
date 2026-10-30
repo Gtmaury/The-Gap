@@ -1,4 +1,4 @@
-import { initialSession, paceText, queueShift, startPlace, stopForMenu } from "./hud.js"
+import { initialSession, paceText, queueShift, selectCar, selectTime, startPlace, stopForMenu } from "./hud.js"
 import { chunksAround, createView } from "./render.js"
 import { propsForChunk } from "./scenery.js"
 import { solidRadius } from "./route.js"
@@ -51,10 +51,12 @@ if (!gl) {
   function begin(index) {
     const place = places[index]
     if (!place) return
-    session = startPlace(index)
+    session = startPlace(index, session)
     run = createRun(place)
     accumulator = 0
     view.setField(place)
+    view.setTime(session.day)
+    view.setCar(session.car)
     menu.hidden = true
     speed.hidden = false
     back.hidden = false
@@ -97,8 +99,26 @@ if (!gl) {
     requestAnimationFrame(frame)
   }
 
-  menu.querySelectorAll("button").forEach((button) => {
+  function markSelected(selector, button) {
+    menu.querySelectorAll(selector).forEach((item) => {
+      item.classList.toggle("is-selected", item === button)
+    })
+  }
+
+  menu.querySelectorAll("[data-place]").forEach((button) => {
     button.addEventListener("click", () => begin(Number(button.dataset.place)))
+  })
+  menu.querySelectorAll("[data-time]").forEach((button) => {
+    button.addEventListener("click", () => {
+      session = selectTime(session, button.dataset.time === "day")
+      markSelected("[data-time]", button)
+    })
+  })
+  menu.querySelectorAll("[data-car]").forEach((button) => {
+    button.addEventListener("click", () => {
+      session = selectCar(session, button.dataset.car)
+      markSelected("[data-car]", button)
+    })
   })
   back.addEventListener("click", showMenu)
 

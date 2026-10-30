@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
-import { initialSession, paceText, queueShift, startPlace, stopForMenu } from "./hud.js"
+import { initialSession, paceText, queueShift, selectCar, selectTime, startPlace, stopForMenu } from "./hud.js"
 
 const html = readFileSync(new URL("./index.html", import.meta.url), "utf8")
 const css = readFileSync(new URL("./styles.css", import.meta.url), "utf8")
@@ -28,10 +28,27 @@ assert.match(main, /back\.addEventListener\("click", showMenu\)/)
 
 const waiting = initialSession()
 assert.equal(waiting.playing, false)
+assert.equal(waiting.day, false)
+assert.equal(waiting.car, "hatch")
+assert.match(html, /data-time="night"[^>]*is-selected/)
+assert.match(html, /data-car="hatch"[^>]*is-selected/)
+assert.match(html, />Day</)
+assert.match(html, /Hatch/)
+assert.match(html, /Coupe/)
+assert.match(html, /Wagon/)
+assert.match(main, /querySelectorAll\("\[data-place\]"\)/)
+assert.match(main, /view\.setTime\(session\.day\)/)
+assert.match(main, /view\.setCar\(session\.car\)/)
 const driving = startPlace(1)
 assert.equal(driving.playing, true)
 const stopped = stopForMenu(driving)
 assert.equal(stopped.playing, false)
+const dayDrive = stopForMenu(startPlace(0, selectTime(waiting, true)))
+assert.equal(dayDrive.day, true)
+assert.equal(dayDrive.playing, false)
+const coupeDrive = stopForMenu(startPlace(1, selectCar(waiting, "coupe")))
+assert.equal(coupeDrive.car, "coupe")
+assert.equal(coupeDrive.playing, false)
 
 const stepAt = main.indexOf("run = step(")
 const gateAt = main.indexOf("if (session.playing)")
