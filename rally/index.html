@@ -4,12 +4,43 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Low Poly Rally</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23c7c7cc'/%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230d1018'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <p id="fallback" hidden>This browser cannot display the rally.</p>
     <canvas id="view"></canvas>
+    <p id="speed" hidden>0 km/h</p>
+    <section id="menu" aria-label="Level menu">
+      <div class="moon" aria-hidden="true"></div>
+      <div class="ridge" aria-hidden="true"></div>
+      <div class="road" aria-hidden="true"></div>
+      <h1>Night stages</h1>
+      <div class="places">
+        <button type="button" data-place="0">
+          <span class="scene" aria-hidden="true">
+            <span class="pine"></span>
+            <span class="pine far"></span>
+          </span>
+          Night snow
+        </button>
+        <button type="button" data-place="1">
+          <span class="scene" aria-hidden="true">
+            <span class="pine"></span>
+            <span class="pine"></span>
+            <span class="pine far"></span>
+          </span>
+          Night forest
+        </button>
+        <button type="button" data-place="2">
+          <span class="scene" aria-hidden="true">
+            <span class="stone"></span>
+            <span class="stone far"></span>
+          </span>
+          Night rock
+        </button>
+      </div>
+    </section>
     <script type="module" src="./main.js"></script>
   </body>
 </html>
