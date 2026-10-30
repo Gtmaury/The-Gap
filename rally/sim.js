@@ -1,4 +1,5 @@
-export const TOP_SPEED = 16
+export const SPEED_STEPS = [8, 12, 16, 20, 24, 28, 32]
+export const STEP_HOLD = 0.45
 export const ACCEL = 14
 export const BRAKE = 22
 export const DRAG = 1.5
@@ -30,6 +31,12 @@ function slopeAccel(grade) {
   return (-SLOPE_GRAVITY * grade) / Math.hypot(1, grade)
 }
 
+function stepForSpeed(speed) {
+  let index = 0
+  while (index < SPEED_STEPS.length - 1 && SPEED_STEPS[index] < speed) index += 1
+  return index
+}
+
 export function createRun(field) {
   const start = field.start
   return {
@@ -42,6 +49,8 @@ export function createRun(field) {
       speed: 0,
       vx: 0,
       vz: 0,
+      stepIndex: 0,
+      stepHold: 0,
     },
   }
 }
@@ -72,7 +81,21 @@ export function step(run, input, dt, solids = []) {
   else alongSpeed -= DRAG * dt
   alongSpeed += slopeAccel(grade) * dt
   if (alongSpeed < 0) alongSpeed = 0
-  if (alongSpeed > TOP_SPEED) alongSpeed = TOP_SPEED
+  let stepIndex = run.car.stepIndex || 0
+  let stepHold = run.car.stepHold || 0
+  if (accelerate && !brake) {
+    const cap = SPEED_STEPS[stepIndex]
+    if (alongSpeed >= cap - 0.4) stepHold += dt
+    else stepHold = 0
+    if (stepHold >= STEP_HOLD && stepIndex < SPEED_STEPS.length - 1) {
+      stepIndex += 1
+      stepHold = 0
+    }
+  } else {
+    stepHold = 0
+    stepIndex = stepForSpeed(alongSpeed)
+  }
+  if (alongSpeed > SPEED_STEPS[stepIndex]) alongSpeed = SPEED_STEPS[stepIndex]
 
   if (alongSpeed === 0) {
     latX = 0
@@ -104,6 +127,8 @@ export function step(run, input, dt, solids = []) {
       speed,
       vx,
       vz,
+      stepIndex,
+      stepHold,
     },
   }
 }

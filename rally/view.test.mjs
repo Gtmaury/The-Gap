@@ -68,11 +68,14 @@ assert.equal(source.includes("0.82, 0.08, 0.07"), true)
 assert.equal(source.includes("0.78, 0.78, 0.8"), false)
 assert.equal(source.includes("0.86, 0.89, 0.93"), false)
 assert.equal(source.includes("0.05, 0.06, 0.10"), true)
-const aheadLight = { x: 0, y: terrainHeight(field, 0, 8), z: 8 }
-const sideLight = { x: 8, y: terrainHeight(field, 8, 0), z: 0 }
+const aheadLight = { x: 0, y: terrainHeight(field, 0, 4), z: 4 }
+const sideLight = { x: 4, y: terrainHeight(field, 4, 0), z: 0 }
+const farLight = { x: 0, y: terrainHeight(field, 0, 20), z: 20 }
 assert.ok(headlightAmount(straight.car, aheadLight, field) > headlightAmount(straight.car, sideLight, field))
+assert.equal(headlightAmount(straight.car, farLight, field), headlightAmount(straight.car, sideLight, field))
 const noseTurned = { ...straight.car, heading: -Math.PI / 2 }
 assert.ok(headlightAmount(noseTurned, sideLight, field) > headlightAmount(noseTurned, aheadLight, field))
+assert.equal(source.includes("buildWedge"), false)
 const nose = carPoint(straight.car, [0, 0, 1], field)
 assert.ok(nose.y > straight.car.y, `nose ${nose.y} car ${straight.car.y}`)
 const windowAt200 = chunksAround(200)

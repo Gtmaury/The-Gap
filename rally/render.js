@@ -38,14 +38,14 @@ void main() {
   vec2 delta = vWorld.xz - uCar;
   float along = dot(delta, uNose);
   float lat = abs(delta.x * uNose.y - delta.y * uNose.x);
-  float halfW = along / 16.0 * 7.0;
+  float halfW = 0.6 + along / 8.0 * 1.6;
   float head = 0.0;
-  if (along > 0.0 && along < 16.0 && lat < halfW) {
-    head = (1.0 - along / 16.0) * (1.0 - lat / halfW);
+  if (along > 1.2 && along < 8.0 && lat < halfW) {
+    head = (1.0 - along / 8.0) * (1.0 - lat / halfW);
   }
   float groundY = uHeightBase + uHeightAmp * sin(6.2831853 * vWorld.z / 180.0);
   float onGround = 1.0 - step(1.5, abs(vWorld.y - groundY));
-  color += vShade * onGround * head * vec3(1.0);
+  color += vShade * onGround * head * vec3(0.85, 0.72, 0.45);
   gl_FragColor = vec4(min(color, vec3(1.0)), 1.0);
 }
 `
@@ -55,7 +55,6 @@ const STRIDE = 10
 const SKY = [0.05, 0.06, 0.10]
 const PINE = [0.22, 0.22, 0.24]
 const ROCK = [0.16, 0.16, 0.17]
-const BEAM = [1, 1, 1]
 const TAIL = [0.82, 0.08, 0.07]
 const BODY = [0.9, 0.9, 0.92]
 
@@ -117,11 +116,11 @@ export function headlightAmount(car, point, place) {
   const dx = point.x - car.x
   const dz = point.z - car.z
   const along = dx * face.x + dz * face.z
-  if (along <= 0 || along >= 16) return 0
+  if (along <= 1.2 || along >= 8) return 0
   const lat = Math.abs(dx * face.z - dz * face.x)
-  const half = (along / 16) * 7
+  const half = 0.6 + (along / 8) * 1.6
   if (half <= 0 || lat >= half) return 0
-  return (1 - along / 16) * (1 - lat / half)
+  return (1 - along / 8) * (1 - lat / half)
 }
 
 function multiply(a, b) {
@@ -410,34 +409,6 @@ function buildScenery(field, index) {
   return new Float32Array(data)
 }
 
-function buildWedge(car, place) {
-  const face = forward(car.heading)
-  const rightX = face.z
-  const rightZ = -face.x
-  const farX = car.x + face.x * 16
-  const farZ = car.z + face.z * 16
-  const leftX = farX + rightX * 7
-  const leftZ = farZ + rightZ * 7
-  const rightFarX = farX - rightX * 7
-  const rightFarZ = farZ - rightZ * 7
-  const data = []
-  const up = [0, 1, 0]
-  const snow = (x, z) => terrainHeight(place, x, z) + 0.08
-  const segments = 6
-  for (let i = 0; i < segments; i++) {
-    const t0 = i / segments
-    const t1 = (i + 1) / segments
-    const x0 = leftX + (rightFarX - leftX) * t0
-    const z0 = leftZ + (rightFarZ - leftZ) * t0
-    const x1 = leftX + (rightFarX - leftX) * t1
-    const z1 = leftZ + (rightFarZ - leftZ) * t1
-    pushVertex(data, car.x, snow(car.x, car.z), car.z, BEAM, up, 0)
-    pushVertex(data, x0, snow(x0, z0), z0, BEAM, up, 0)
-    pushVertex(data, x1, snow(x1, z1), z1, BEAM, up, 0)
-  }
-  return new Float32Array(data)
-}
-
 function buildCarLocal() {
   const data = []
   addBox(data, [-0.85, 0.45, -1.8], [0.85, 1.05, 1.9], BODY)
@@ -487,7 +458,6 @@ export function createView(canvas, gl) {
   const heightAmpLoc = gl.getUniformLocation(program, "uHeightAmp")
   const carLocal = buildCarLocal()
   const carBuffer = gl.createBuffer()
-  const wedgeBuffer = gl.createBuffer()
   let staticMeshes = []
   let chunkKey = ""
   let activeField = null
@@ -564,10 +534,6 @@ export function createView(canvas, gl) {
         chunkKey = key
       }
       for (const mesh of staticMeshes) bind(mesh)
-      const wedge = buildWedge(run.car, activeField)
-      gl.bindBuffer(gl.ARRAY_BUFFER, wedgeBuffer)
-      gl.bufferData(gl.ARRAY_BUFFER, wedge, gl.DYNAMIC_DRAW)
-      bind({ buffer: wedgeBuffer, count: wedge.length / STRIDE })
       const carData = transformMesh(carLocal, run.car, activeField)
       gl.bindBuffer(gl.ARRAY_BUFFER, carBuffer)
       gl.bufferData(gl.ARRAY_BUFFER, carData, gl.DYNAMIC_DRAW)
