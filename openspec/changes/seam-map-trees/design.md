@@ -25,6 +25,8 @@
 
 The old edge at z = 90 then sits inside both meshes, with road on both sides of it in each mesh. The skirt of one chunk repeats quads the next chunk also draws. Those quads use the same positions, so the depth test drops the second copy. Props stay inside `[zBase, zBase + span)`.
 
+The skirt alone leaves a second line. The hill is `heightBase + heightAmp * sin(2π z / 180)`, and a 6 m road chord at the crest rises about 0.055 m above its ends while the sheet is only 0.05 m above the ground, so snow shows through the whole road width. Each 6 m color block is split into 2 m chords. A 2 m chord rises about 0.006 m, under the lift. The dash color still follows `floor(z / 6)`.
+
 Alternative: start the next chunk where the skirt ends. That only moves the line to the new edge.
 
 ### Paint the pine from the place

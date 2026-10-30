@@ -68,7 +68,6 @@ export const DAY = {
   diffuse: 0.75,
   light: [0.15, 0.92, 0.2],
 }
-const PINE = [0.22, 0.22, 0.24]
 const ROCK = [0.16, 0.16, 0.17]
 const TAIL = [0.82, 0.08, 0.07]
 const BODY = [0.9, 0.9, 0.92]
@@ -333,7 +332,7 @@ export function chunksAround(z) {
   return indexes
 }
 
-function buildTerrain(field, index) {
+export function buildTerrain(field, index) {
   const cells = 40
   const bounds = boundsOf(field)
   const span = bounds.maxZ - bounds.minZ
@@ -341,11 +340,12 @@ function buildTerrain(field, index) {
   const data = []
   const dx = (bounds.maxX - bounds.minX) / cells
   const dz = span / cells
-  for (let iz = 0; iz < cells; iz++) {
+  const rows = cells + 2
+  for (let iz = 0; iz < rows; iz++) {
     for (let ix = 0; ix < cells; ix++) {
       const x0 = bounds.minX + ix * dx
       const x1 = x0 + dx
-      const z0 = zBase + iz * dz
+      const z0 = zBase - dz + iz * dz
       const z1 = z0 + dz
       const y00 = terrainHeight(field, x0, z0)
       const y10 = terrainHeight(field, x1, z0)
@@ -362,15 +362,19 @@ function buildTerrain(field, index) {
   return new Float32Array(data)
 }
 
-function buildRoute(field, index) {
+export function buildRoute(field, index) {
   const bounds = boundsOf(field)
   const span = bounds.maxZ - bounds.minZ
   const zBase = bounds.minZ + span * index
   const step = 6
   const bands = [[-0.12, 0.12], [-5.5, -0.12], [0.12, 5.5], [-7, -5.5], [5.5, 7]]
   const data = []
-  for (let z0 = zBase; z0 < zBase + span - 1e-6; z0 += step) {
-    const z1 = Math.min(z0 + step, zBase + span)
+  const zEnd = zBase + span + step
+  const sub = 2
+  for (let zBlock = zBase - step; zBlock < zEnd - 1e-6; zBlock += step) {
+    for (let part = 0; part < step / sub; part++) {
+      const z0 = zBlock + part * sub
+      const z1 = z0 + sub
     for (const [near, far] of bands) {
       const color = roadColor((near + far) / 2, z0)
       const y = (x, z) => terrainHeight(field, x, z) + 0.05
@@ -383,12 +387,12 @@ function buildRoute(field, index) {
       pushTri(data, a, b, c, color)
       pushTri(data, a, c, d, color)
     }
+    }
   }
   return new Float32Array(data)
 }
 
-function addCone(data, x, z, height, radius, color, field) {
-  const y = terrainHeight(field, x, z)
+function addCone(data, x, z, baseY, height, radius, color) {
   const sides = 6
   const ring = []
   for (let i = 0; i < sides; i++) {
@@ -397,9 +401,9 @@ function addCone(data, x, z, height, radius, color, field) {
   }
   for (let i = 0; i < sides; i++) {
     const next = (i + 1) % sides
-    const a = [ring[i][0], y, ring[i][1]]
-    const b = [x, y + height, z]
-    const c = [ring[next][0], y, ring[next][1]]
+    const a = [ring[i][0], baseY, ring[i][1]]
+    const b = [x, baseY + height, z]
+    const c = [ring[next][0], baseY, ring[next][1]]
     const normal = faceNormal(a, b, c)
     const midX = (a[0] + c[0]) / 2 - x
     const midZ = (a[2] + c[2]) / 2 - z
@@ -410,16 +414,30 @@ function addCone(data, x, z, height, radius, color, field) {
   }
 }
 
+export function pineMesh(place, x = 0, z = 0) {
+  const data = []
+  const y = terrainHeight(place, x, z)
+  if (place.id === "night-forest") {
+    addBox(data, [x - 0.28, y, z - 0.28], [x + 0.28, y + 1.4, z + 0.28], [0.28, 0.16, 0.1])
+    addCone(data, x, z, y, 8, 3, [0.1, 0.28, 0.12])
+    addCone(data, x, z, y + 3.4, 5.2, 2.1, [0.18, 0.4, 0.16])
+  } else {
+    addCone(data, x, z, y, 8, 3, [0.16, 0.32, 0.2])
+    addCone(data, x, z, y + 5, 3.2, 1.5, [0.92, 0.93, 0.9])
+  }
+  return data
+}
+
 function addRock(data, x, z, field) {
   const y = terrainHeight(field, x, z)
   addBox(data, [x - 1.2, y, z - 0.7], [x + 0.3, y + 0.7, z + 0.9], ROCK)
   addBox(data, [x - 0.2, y, z - 1.1], [x + 1.3, y + 1.15, z + 0.2], ROCK)
 }
 
-function buildScenery(field, index) {
+export function buildScenery(field, index) {
   const data = []
   for (const prop of propsForChunk(field, index)) {
-    if (prop.kind === "pine") addCone(data, prop.x, prop.z, 8, 3, PINE, field)
+    if (prop.kind === "pine") data.push(...pineMesh(field, prop.x, prop.z))
     else addRock(data, prop.x, prop.z, field)
   }
   return new Float32Array(data)
