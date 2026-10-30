@@ -3,4 +3,6 @@ analysis/
 data/
 graphify-out/
 tools/
-.cursor/
+.cursor/*
+!.cursor/commands/
+!.cursor/skills/
