@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
-import { buildRoute, buildTerrain } from "./render.js"
-import { propsForChunk } from "./scenery.js"
+import { buildRoute, buildTerrain, coverMesh } from "./render.js"
+import { coverForChunk, propsForChunk } from "./scenery.js"
 import { ASPHALT, DASH, ROUTE_HALF, SHOULDER, roadColor, routeCenter, routeClearance, solidRadius } from "./route.js"
 import { field, places } from "./stages.js"
 
@@ -82,5 +82,68 @@ for (const index of [0, 1]) {
   }
 }
 
+function hasColor(mesh, color) {
+  for (let i = 6; i < mesh.length; i += 10) {
+    if (
+      Math.abs(mesh[i] - color[0]) < 1e-5 &&
+      Math.abs(mesh[i + 1] - color[1]) < 1e-5 &&
+      Math.abs(mesh[i + 2] - color[2]) < 1e-5
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+for (const place of places) {
+  const ground = buildTerrain(place, 0)
+  assert.equal(hasColor(ground, place.ground), true, `${place.id} ground`)
+  assert.equal(hasColor(ground, place.patch), true, `${place.id} patch`)
+}
+const snowRoad = buildRoute(field, 0)
+assert.equal(hasColor(snowRoad, ASPHALT), true)
+assert.equal(hasColor(snowRoad, DASH), true)
+assert.equal(hasColor(snowRoad, SHOULDER), true)
+assert.equal(hasColor(snowRoad, field.patch), false)
+
 const sim = readFileSync(new URL("./sim.js", import.meta.url), "utf8")
 assert.equal(sim.includes("scenery"), false)
+const main = readFileSync(new URL("./main.js", import.meta.url), "utf8")
+assert.equal(main.includes("coverForChunk"), false)
+
+function missesSolids(place, cover) {
+  const solids = propsForChunk(place, 0)
+  for (const prop of cover) {
+    assert.equal(solids.some((solid) => solid.x === prop.x && solid.z === prop.z), false)
+    assert.ok(Math.hypot(prop.x - place.start.x, prop.z - place.start.z) >= 10)
+    assert.ok(Math.abs(prop.x - routeCenter(prop.z)) >= routeClearance(place.kind))
+  }
+}
+
+const snowCover = coverForChunk(field, 0)
+assert.equal(snowCover.filter((prop) => prop.kind === "mound").length, 24)
+assert.equal(snowCover.filter((prop) => prop.kind === "shrub").length, 16)
+assert.equal(propsForChunk(field, 0).length, 48)
+missesSolids(field, snowCover)
+for (const prop of snowCover) {
+  const color = prop.kind === "mound" ? [0.82, 0.86, 0.9] : [0.18, 0.22, 0.2]
+  assert.equal(hasColor(coverMesh(field, prop), color), true, prop.kind)
+}
+
+const forestCover = coverForChunk(forest, 0)
+assert.equal(forestCover.filter((prop) => prop.kind === "undergrowth").length, 40)
+assert.equal(forestCover.filter((prop) => prop.kind === "stump").length, 12)
+assert.equal(propsForChunk(forest, 0).length, 80)
+missesSolids(forest, forestCover)
+for (const prop of forestCover) {
+  const color = prop.kind === "undergrowth" ? [0.08, 0.2, 0.1] : [0.28, 0.16, 0.1]
+  assert.equal(hasColor(coverMesh(forest, prop), color), true, prop.kind)
+}
+
+const rockCover = coverForChunk(rock, 0)
+assert.equal(rockCover.filter((prop) => prop.kind === "rubble").length, 28)
+assert.equal(propsForChunk(rock, 0).length, 36)
+missesSolids(rock, rockCover)
+for (const prop of rockCover) {
+  assert.equal(hasColor(coverMesh(rock, prop), [0.16, 0.16, 0.17]), true)
+}

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { createRun, forward, terrainHeight } from "./sim.js"
+import { propsForChunk } from "./scenery.js"
 import { field, places } from "./stages.js"
 import { buildCarLocal, buildScenery, carPoint, chunksAround, headlightAmount, lightFactor, pineMesh, projectCar, projectPoint, viewPose } from "./render.js"
 
@@ -138,6 +139,46 @@ assert.ok(forestPine.colors.has("0.28,0.16,0.1"))
 assert.ok(forestPine.colors.has("0.1,0.28,0.12"))
 assert.ok(forestPine.colors.has("0.18,0.4,0.16"))
 assert.equal(forestPine.colors.has("0.92,0.93,0.9"), false)
+
+function readPine(place, prop) {
+  const mesh = pineMesh(place, prop.x, prop.z, prop.height)
+  let maxY = -Infinity
+  let capY = -Infinity
+  let wide = 0
+  const colors = new Set()
+  const body = place.id === "night-forest" ? "0.1,0.28,0.12" : "0.16,0.32,0.2"
+  for (let i = 0; i < mesh.length; i += 10) {
+    const y = mesh[i + 1]
+    const color = `${mesh[i + 6]},${mesh[i + 7]},${mesh[i + 8]}`
+    maxY = Math.max(maxY, y)
+    colors.add(color)
+    if (color === "0.92,0.93,0.9") capY = Math.max(capY, y)
+    if (color === body) wide = Math.max(wide, Math.hypot(mesh[i] - prop.x, mesh[i + 2] - prop.z))
+  }
+  return { maxY, capY, colors, wide }
+}
+
+function chunkPines(place) {
+  return propsForChunk(place, 0).filter((prop) => prop.kind === "pine").map((prop) => readPine(place, prop))
+}
+
+const snowChunk = chunkPines(field)
+assert.ok(new Set(snowChunk.map((pine) => pine.maxY)).size > 1)
+for (const pine of snowChunk) {
+  assert.ok(pine.colors.has("0.16,0.32,0.2"))
+  assert.ok(pine.colors.has("0.92,0.93,0.9"))
+  assert.equal(pine.capY, pine.maxY)
+  assert.ok(Math.abs(pine.wide - 3) < 1e-6)
+}
+const forestChunk = chunkPines(forestPlace)
+assert.ok(new Set(forestChunk.map((pine) => pine.maxY)).size > 1)
+for (const pine of forestChunk) {
+  assert.ok(pine.colors.has("0.28,0.16,0.1"))
+  assert.ok(pine.colors.has("0.1,0.28,0.12"))
+  assert.ok(pine.colors.has("0.18,0.4,0.16"))
+  assert.equal(pine.colors.has("0.92,0.93,0.9"), false)
+  assert.ok(Math.abs(pine.wide - 3) < 1e-6)
+}
 const rockPlace = places.find((place) => place.id === "night-rock")
 const rockMesh = buildScenery(rockPlace, 0)
 let rockStone = false
@@ -146,6 +187,7 @@ for (let i = 6; i < rockMesh.length; i += 10) {
   const [r, g, b] = [rockMesh[i], rockMesh[i + 1], rockMesh[i + 2]]
   if (Math.abs(r - 0.16) < 1e-5 && Math.abs(g - 0.16) < 1e-5 && Math.abs(b - 0.17) < 1e-5) rockStone = true
   if (Math.abs(r - 0.92) < 1e-5 && Math.abs(g - 0.93) < 1e-5 && Math.abs(b - 0.9) < 1e-5) rockCap = true
+  if (Math.abs(r - 0.16) < 1e-5 && Math.abs(g - 0.32) < 1e-5 && Math.abs(b - 0.2) < 1e-5) rockCap = true
 }
 assert.equal(rockStone, true)
 assert.equal(rockCap, false)

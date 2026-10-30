@@ -1,4 +1,4 @@
-import { propsForChunk } from "./scenery.js"
+import { coverForChunk, propsForChunk } from "./scenery.js"
 import { roadColor, routeCenter } from "./route.js"
 import { forward, gradeAlong, terrainHeight } from "./sim.js"
 
@@ -315,6 +315,12 @@ function transformMesh(local, car, place) {
   return new Float32Array(world)
 }
 
+function cellPatch(ix, iz) {
+  let n = Math.imul(ix + 1, 374761393) ^ Math.imul(iz + 1, 668265263)
+  n = Math.imul(n ^ (n >>> 13), 1274126177)
+  return ((n ^ (n >>> 16)) >>> 0) % 7 === 0
+}
+
 function boundsOf(field) {
   return { minX: field.minX, maxX: field.maxX, minZ: field.minZ, maxZ: field.maxZ }
 }
@@ -355,8 +361,9 @@ export function buildTerrain(field, index) {
       const b = [x0, y01, z1]
       const c = [x1, y11, z1]
       const d = [x1, y10, z0]
-      pushTri(data, a, b, c, field.ground)
-      pushTri(data, a, c, d, field.ground)
+      const color = cellPatch(ix, iz) ? field.patch : field.ground
+      pushTri(data, a, b, c, color)
+      pushTri(data, a, c, d, color)
     }
   }
   return new Float32Array(data)
@@ -414,16 +421,17 @@ function addCone(data, x, z, baseY, height, radius, color) {
   }
 }
 
-export function pineMesh(place, x = 0, z = 0) {
+export function pineMesh(place, x = 0, z = 0, height = 0) {
   const data = []
   const y = terrainHeight(place, x, z)
+  const scale = height === 1 ? 1.18 : height === 2 ? 0.82 : 1
   if (place.id === "night-forest") {
-    addBox(data, [x - 0.28, y, z - 0.28], [x + 0.28, y + 1.4, z + 0.28], [0.28, 0.16, 0.1])
-    addCone(data, x, z, y, 8, 3, [0.1, 0.28, 0.12])
-    addCone(data, x, z, y + 3.4, 5.2, 2.1, [0.18, 0.4, 0.16])
+    addBox(data, [x - 0.28, y, z - 0.28], [x + 0.28, y + 1.4 * scale, z + 0.28], [0.28, 0.16, 0.1])
+    addCone(data, x, z, y, 8 * scale, 3, [0.1, 0.28, 0.12])
+    addCone(data, x, z, y + 3.4 * scale, 5.2 * scale, 2.1, [0.18, 0.4, 0.16])
   } else {
-    addCone(data, x, z, y, 8, 3, [0.16, 0.32, 0.2])
-    addCone(data, x, z, y + 5, 3.2, 1.5, [0.92, 0.93, 0.9])
+    addCone(data, x, z, y, 8 * scale, 3, [0.16, 0.32, 0.2])
+    addCone(data, x, z, y + 5 * scale, 3.2 * scale, 1.5, [0.92, 0.93, 0.9])
   }
   return data
 }
@@ -434,12 +442,26 @@ function addRock(data, x, z, field) {
   addBox(data, [x - 0.2, y, z - 1.1], [x + 1.3, y + 1.15, z + 0.2], ROCK)
 }
 
+export function coverMesh(field, prop) {
+  const data = []
+  const y = terrainHeight(field, prop.x, prop.z)
+  const { x, z } = prop
+  if (prop.kind === "mound") addCone(data, x, z, y, 0.55, 1.2, [0.82, 0.86, 0.9])
+  else if (prop.kind === "shrub") addCone(data, x, z, y, 1.4, 0.7, [0.18, 0.22, 0.2])
+  else if (prop.kind === "undergrowth") addCone(data, x, z, y, 1.2, 0.9, [0.08, 0.2, 0.1])
+  else if (prop.kind === "stump") {
+    addBox(data, [x - 0.35, y, z - 0.35], [x + 0.35, y + 0.6, z + 0.35], [0.28, 0.16, 0.1])
+  } else addBox(data, [x - 0.4, y, z - 0.4], [x + 0.4, y + 0.45, z + 0.4], ROCK)
+  return data
+}
+
 export function buildScenery(field, index) {
   const data = []
   for (const prop of propsForChunk(field, index)) {
-    if (prop.kind === "pine") data.push(...pineMesh(field, prop.x, prop.z))
+    if (prop.kind === "pine") data.push(...pineMesh(field, prop.x, prop.z, prop.height))
     else addRock(data, prop.x, prop.z, field)
   }
+  for (const prop of coverForChunk(field, index)) data.push(...coverMesh(field, prop))
   return new Float32Array(data)
 }
 
