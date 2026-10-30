@@ -1,4 +1,4 @@
-import { initialSession, paceText, startPlace, stopForMenu } from "./hud.js"
+import { initialSession, paceText, queueShift, startPlace, stopForMenu } from "./hud.js"
 import { chunksAround, createView } from "./render.js"
 import { propsForChunk } from "./scenery.js"
 import { solidRadius } from "./route.js"
@@ -9,12 +9,14 @@ const canvas = document.querySelector("#view")
 const fallback = document.querySelector("#fallback")
 const menu = document.querySelector("#menu")
 const speed = document.querySelector("#speed")
+const back = document.querySelector("#back")
 
 const gl = canvas.getContext("webgl", { antialias: false })
 if (!gl) {
   fallback.hidden = false
   canvas.hidden = true
   menu.hidden = true
+  back.hidden = true
 } else {
   const view = createView(canvas, gl)
   view.setField(field)
@@ -24,14 +26,18 @@ if (!gl) {
   let run = createRun(field)
   let last = performance.now()
   let accumulator = 0
+  let pendingShift = 0
 
-  function input() {
+  function input(useShift) {
     const left = keys.has("KeyA") || keys.has("ArrowLeft")
     const right = keys.has("KeyD") || keys.has("ArrowRight")
+    const shift = useShift ? pendingShift : 0
+    if (useShift) pendingShift = 0
     return {
-      accelerate: keys.has("KeyW") || keys.has("ArrowUp"),
-      brake: keys.has("KeyS") || keys.has("ArrowDown"),
+      accelerate: keys.has("KeyW"),
+      brake: keys.has("KeyS"),
       steer: (left ? 1 : 0) - (right ? 1 : 0),
+      shift,
     }
   }
 
@@ -39,7 +45,7 @@ if (!gl) {
     if (!session.playing) return
     run = restart(run)
     accumulator = 0
-    speed.textContent = paceText(run.car.speed)
+    speed.textContent = paceText(run.car.speed, run.car.gear)
   }
 
   function begin(index) {
@@ -51,7 +57,8 @@ if (!gl) {
     view.setField(place)
     menu.hidden = true
     speed.hidden = false
-    speed.textContent = paceText(run.car.speed)
+    back.hidden = false
+    speed.textContent = paceText(run.car.speed, run.car.gear)
   }
 
   function showMenu() {
@@ -59,6 +66,7 @@ if (!gl) {
     accumulator = 0
     menu.hidden = false
     speed.hidden = true
+    back.hidden = true
   }
 
   function paint(dt) {
@@ -71,6 +79,7 @@ if (!gl) {
     if (session.playing) {
       accumulator += dt
       const stepDt = 1 / 60
+      let first = true
       while (accumulator >= stepDt) {
         const solids = []
         for (const index of chunksAround(run.car.z)) {
@@ -78,10 +87,11 @@ if (!gl) {
             solids.push({ x: prop.x, z: prop.z, radius: solidRadius(prop.kind) })
           }
         }
-        run = step(run, input(), stepDt, solids)
+        run = step(run, input(first), stepDt, solids)
+        first = false
         accumulator -= stepDt
       }
-      speed.textContent = paceText(run.car.speed)
+      speed.textContent = paceText(run.car.speed, run.car.gear)
     }
     paint(dt)
     requestAnimationFrame(frame)
@@ -90,9 +100,11 @@ if (!gl) {
   menu.querySelectorAll("button").forEach((button) => {
     button.addEventListener("click", () => begin(Number(button.dataset.place)))
   })
+  back.addEventListener("click", showMenu)
 
   window.addEventListener("keydown", (event) => {
     keys.add(event.code)
+    pendingShift = queueShift(pendingShift, event.code, event.repeat)
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) {
       event.preventDefault()
     }

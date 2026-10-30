@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
-import { initialSession, paceText, startPlace, stopForMenu } from "./hud.js"
+import { initialSession, paceText, queueShift, startPlace, stopForMenu } from "./hud.js"
 
 const html = readFileSync(new URL("./index.html", import.meta.url), "utf8")
 const css = readFileSync(new URL("./styles.css", import.meta.url), "utf8")
@@ -13,7 +13,18 @@ assert.match(html, /Night forest/)
 assert.match(html, /Night rock/)
 assert.match(css, /clip-path/)
 assert.match(css, /#0d1018/)
-assert.equal(paceText(10), "36 km/h")
+assert.equal(paceText(10, 2), "3 36 km/h")
+assert.equal(main.match(/accelerate:[^\n]+/)[0].includes("ArrowUp"), false)
+assert.equal(main.match(/brake:[^\n]+/)[0].includes("ArrowDown"), false)
+let queued = queueShift(0, "ArrowUp", false)
+assert.equal(queued, 1)
+assert.equal(queueShift(queued, "ArrowUp", true), 1)
+assert.match(html, /<button id="back" type="button" hidden>Menu<\/button>/)
+assert.match(css, /#back[\s\S]*background: #0d1018/)
+assert.match(css, /#back[\s\S]*border: 0/)
+assert.match(main, /back\.hidden = false/)
+assert.match(main, /back\.hidden = true/)
+assert.match(main, /back\.addEventListener\("click", showMenu\)/)
 
 const waiting = initialSession()
 assert.equal(waiting.playing, false)

@@ -1,15 +1,15 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { CAR_RADIUS, PINE_RADIUS, ROUTE_HALF, routeCenter } from "./route.js"
-import { RIBBON_PERIOD, SPEED_STEPS, STEP_HOLD, YAW_RATE, createRun, forward, gradeAlong, restart, step, terrainHeight } from "./sim.js"
+import { GEAR_PULL, GEAR_TOP, RIBBON_PERIOD, YAW_RATE, createRun, forward, gradeAlong, restart, step, terrainHeight } from "./sim.js"
 import { field, places } from "./stages.js"
 
 const idle = { accelerate: false, brake: false, steer: 0 }
 const gas = { accelerate: true, brake: false, steer: 0 }
 const brake = { accelerate: false, brake: true, steer: 0 }
 
-assert.deepEqual(SPEED_STEPS, [8, 12, 16, 20, 24, 28, 32])
-assert.equal(STEP_HOLD, 0.45)
+assert.deepEqual(GEAR_TOP, [8, 12, 16, 20, 24, 28, 32])
+assert.deepEqual(GEAR_PULL, [22, 18, 15, 12, 10, 8, 6])
 assert.equal(field.start.x, 0)
 assert.equal(field.start.z, 0)
 assert.equal(field.start.heading, 0)
@@ -37,7 +37,7 @@ function crestSpeed(place) {
   crest.car.speed = 0
   crest.car.vx = 0
   crest.car.vz = 0
-  return step(crest, gas, 1).car.speed
+  return step(crest, gas, 0.2).car.speed
 }
 assert.ok(crestSpeed(places[1]) > crestSpeed(places[0]))
 assert.ok(crestSpeed(places[2]) < crestSpeed(places[0]))
@@ -46,14 +46,14 @@ assert.equal(Object.hasOwn(run, "penaltyTime"), false)
 assert.equal(Object.hasOwn(run, "phase"), false)
 assert.equal(run.field, field)
 
-const uphill = step(run, gas, 2)
+const uphill = step(run, gas, 0.2)
 assert.ok(uphill.car.speed > 0)
-assert.ok(uphill.car.speed <= SPEED_STEPS.at(-1))
+assert.ok(uphill.car.speed <= GEAR_TOP[0])
 assert.ok(uphill.car.z > 0)
 assert.ok(uphill.car.y > run.car.y)
 const downhillStart = createRun(field)
 downhillStart.car.heading = Math.PI
-const downhill = step(downhillStart, gas, 2)
+const downhill = step(downhillStart, gas, 0.2)
 assert.ok(downhill.car.speed > uphill.car.speed)
 run = step(uphill, gas, 1)
 assert.equal(Object.hasOwn(run, "phase"), false)
@@ -143,35 +143,37 @@ assert.equal(hit.car.heading, blocked.car.heading)
 
 const flat = { ...field, id: "flat", heightAmp: 0, grip: 1 }
 const oneSecond = step(createRun(flat), gas, 1)
-assert.ok(oneSecond.car.speed <= 12, `flat ${oneSecond.car.speed}`)
+assert.ok(oneSecond.car.speed > 0)
+assert.ok(oneSecond.car.speed <= 8, `flat ${oneSecond.car.speed}`)
+assert.equal(oneSecond.car.gear, 0)
 
-let paced = createRun(flat)
-paced.car.vz = 8
-paced.car.speed = 8
-paced.car.stepIndex = 0
-paced.car.stepHold = 0
-paced = step(paced, gas, STEP_HOLD)
-assert.equal(paced.car.stepIndex, 1)
-assert.equal(SPEED_STEPS[paced.car.stepIndex], 12)
+let shifted = createRun(flat)
+shifted = step(shifted, { ...gas, shift: 1 }, 0)
+assert.equal(shifted.car.gear, 1)
+assert.equal(GEAR_TOP[shifted.car.gear], 12)
+shifted = step(shifted, { ...gas, shift: 0 }, 0.1)
+assert.equal(shifted.car.gear, 1)
 
-let topped = createRun(flat)
-topped.car.stepIndex = SPEED_STEPS.length - 1
-topped.car.vz = 40
-topped.car.speed = 40
-topped = step(topped, gas, 1)
-assert.ok(topped.car.speed <= 32)
+let dropped = createRun(flat)
+dropped.car.gear = 1
+dropped.car.vz = 12
+dropped.car.speed = 12
+dropped = step(dropped, { ...idle, shift: -1 }, 0)
+assert.equal(dropped.car.gear, 0)
+assert.equal(dropped.car.speed, 8)
 
-let high = createRun(flat)
-high.car.stepIndex = 4
-high.car.vz = 20.5
-high.car.speed = 20.5
-const cooled = step(high, idle, 1)
-assert.ok(cooled.car.stepIndex < high.car.stepIndex)
-assert.ok(SPEED_STEPS[cooled.car.stepIndex] < SPEED_STEPS[high.car.stepIndex])
-assert.ok(cooled.car.speed < high.car.speed)
+const lowGear = step(createRun(flat), gas, 0.2)
+const highGear = createRun(flat)
+highGear.car.gear = 6
+highGear.car.vz = 24
+highGear.car.speed = 24
+const highMoved = step(highGear, gas, 0.2)
+assert.ok(lowGear.car.speed > highMoved.car.speed - 24)
 
 const source = readFileSync(new URL("./sim.js", import.meta.url), "utf8")
 assert.equal(source.includes("TOP_SPEED"), false)
+assert.equal(source.includes("ACCEL"), false)
+assert.equal(source.includes("STEP_HOLD"), false)
 assert.equal(source.includes("localStorage"), false)
 assert.equal(source.includes("sessionStorage"), false)
 assert.equal(source.includes("onCourse"), false)
