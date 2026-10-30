@@ -1,6 +1,5 @@
-export const SPEED_STEPS = [8, 12, 16, 20, 24, 28, 32]
-export const STEP_HOLD = 0.45
-export const ACCEL = 14
+export const GEAR_TOP = [8, 12, 16, 20, 24, 28, 32]
+export const GEAR_PULL = [22, 18, 15, 12, 10, 8, 6]
 export const BRAKE = 22
 export const DRAG = 1.5
 export const YAW_RATE = 2.6
@@ -31,12 +30,6 @@ function slopeAccel(grade) {
   return (-SLOPE_GRAVITY * grade) / Math.hypot(1, grade)
 }
 
-function stepForSpeed(speed) {
-  let index = 0
-  while (index < SPEED_STEPS.length - 1 && SPEED_STEPS[index] < speed) index += 1
-  return index
-}
-
 export function createRun(field) {
   const start = field.start
   return {
@@ -49,8 +42,7 @@ export function createRun(field) {
       speed: 0,
       vx: 0,
       vz: 0,
-      stepIndex: 0,
-      stepHold: 0,
+      gear: 0,
     },
   }
 }
@@ -75,27 +67,16 @@ export function step(run, input, dt, solids = []) {
   let latZ = vz0 - face.z * along
 
   const grade = gradeAlong(run.field, run.car.x, run.car.z, face.x, face.z)
+  let gear = run.car.gear ?? 0
+  const shift = Math.max(-1, Math.min(1, Number(input.shift) || 0))
+  gear = Math.max(0, Math.min(GEAR_TOP.length - 1, gear + shift))
   let alongSpeed = along
   if (brake) alongSpeed -= BRAKE * dt
-  else if (accelerate) alongSpeed += ACCEL * run.field.grip * dt
+  else if (accelerate) alongSpeed += GEAR_PULL[gear] * run.field.grip * dt
   else alongSpeed -= DRAG * dt
   alongSpeed += slopeAccel(grade) * dt
   if (alongSpeed < 0) alongSpeed = 0
-  let stepIndex = run.car.stepIndex || 0
-  let stepHold = run.car.stepHold || 0
-  if (accelerate && !brake) {
-    const cap = SPEED_STEPS[stepIndex]
-    if (alongSpeed >= cap - 0.4) stepHold += dt
-    else stepHold = 0
-    if (stepHold >= STEP_HOLD && stepIndex < SPEED_STEPS.length - 1) {
-      stepIndex += 1
-      stepHold = 0
-    }
-  } else {
-    stepHold = 0
-    stepIndex = stepForSpeed(alongSpeed)
-  }
-  if (alongSpeed > SPEED_STEPS[stepIndex]) alongSpeed = SPEED_STEPS[stepIndex]
+  if (alongSpeed > GEAR_TOP[gear]) alongSpeed = GEAR_TOP[gear]
 
   if (alongSpeed === 0) {
     latX = 0
@@ -127,8 +108,7 @@ export function step(run, input, dt, solids = []) {
       speed,
       vx,
       vz,
-      stepIndex,
-      stepHold,
+      gear,
     },
   }
 }

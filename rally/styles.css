@@ -36,6 +36,20 @@ canvas {
   letter-spacing: 0.08em;
 }
 
+#back {
+  position: fixed;
+  z-index: 2;
+  top: 1.4rem;
+  right: 1.6rem;
+  border: 0;
+  background: #0d1018;
+  color: #f3ecdf;
+  font: inherit;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
 #menu {
   position: fixed;
   z-index: 3;
