@@ -10,7 +10,7 @@
   <body>
     <p id="fallback" hidden>This browser cannot display the rally.</p>
     <canvas id="view"></canvas>
-    <p id="speed" hidden>0 km/h</p>
+    <p id="speed" hidden><span id="gear">1</span><span id="pace">0 km/h</span></p>
     <button id="back" type="button" hidden>Menu</button>
     <section id="menu" aria-label="Level menu">
       <div class="moon" aria-hidden="true"></div>
@@ -37,26 +37,26 @@
       </div>
       <div class="places">
         <button type="button" data-place="0">
-          <span class="scene" aria-hidden="true">
+          <span class="scene snow" aria-hidden="true">
             <span class="pine"></span>
-            <span class="pine far"></span>
+            <span class="cap"></span>
           </span>
-          Night snow
+          Snow
         </button>
         <button type="button" data-place="1">
-          <span class="scene" aria-hidden="true">
-            <span class="pine"></span>
-            <span class="pine"></span>
-            <span class="pine far"></span>
+          <span class="scene forest" aria-hidden="true">
+            <span class="pine low"></span>
+            <span class="pine high"></span>
+            <span class="trunk"></span>
           </span>
-          Night forest
+          Forest
         </button>
         <button type="button" data-place="2">
-          <span class="scene" aria-hidden="true">
+          <span class="scene rock" aria-hidden="true">
             <span class="stone"></span>
             <span class="stone far"></span>
           </span>
-          Night rock
+          Rock
         </button>
       </div>
     </section>

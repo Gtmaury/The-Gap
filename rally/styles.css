@@ -30,10 +30,22 @@ canvas {
   z-index: 2;
   top: 1.4rem;
   left: 1.6rem;
+  display: flex;
+  align-items: baseline;
   margin: 0;
+  padding: 0.7rem 1.1rem;
+  background: #0d1018;
   color: #f3ecdf;
-  font-size: 2.6rem;
   letter-spacing: 0.08em;
+}
+
+#gear {
+  font-size: 1.2rem;
+}
+
+#pace {
+  margin-left: 0.6rem;
+  font-size: 2.6rem;
 }
 
 #back {
@@ -41,6 +53,7 @@ canvas {
   z-index: 2;
   top: 1.4rem;
   right: 1.6rem;
+  padding: 0.7rem 1.1rem;
   border: 0;
   background: #0d1018;
   color: #f3ecdf;
@@ -48,6 +61,30 @@ canvas {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+body.is-day #speed,
+body.is-day #back {
+  background: #f3ecdf;
+  color: #1b1b1d;
+}
+
+body.is-day #menu {
+  background: #a3c2e0;
+  color: #1b1b1d;
+}
+
+body.is-day .moon {
+  display: none;
+}
+
+body.is-day .ridge {
+  background: #8aa4be;
+}
+
+body.is-day .choices button.is-selected,
+body.is-day .cars button.is-selected {
+  box-shadow: inset 0 -3px 0 #1b1b1d;
 }
 
 #menu {
@@ -189,6 +226,48 @@ canvas {
   height: 78%;
   background: #2c3138;
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.scene.snow .pine {
+  background: #295233;
+}
+
+.scene.snow .cap {
+  position: absolute;
+  left: 28%;
+  bottom: 46%;
+  width: 14%;
+  height: 26%;
+  background: #ebede6;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.scene.forest .trunk {
+  position: absolute;
+  left: 44%;
+  bottom: 0;
+  width: 8%;
+  height: 22%;
+  background: #47291a;
+}
+
+.scene.forest .pine.low {
+  left: 16%;
+  width: 28%;
+  height: 72%;
+  background: #1a471f;
+}
+
+.scene.forest .pine.high {
+  left: 36%;
+  bottom: 28%;
+  width: 24%;
+  height: 42%;
+  background: #2e6629;
+}
+
+.scene.rock .stone {
+  background: #29292b;
 }
 
 .pine.far {

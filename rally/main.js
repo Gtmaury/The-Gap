@@ -1,4 +1,4 @@
-import { initialSession, paceText, queueShift, selectCar, selectTime, startPlace, stopForMenu } from "./hud.js"
+import { initialSession, paceMarks, queueShift, selectCar, selectTime, startPlace, stopForMenu } from "./hud.js"
 import { chunksAround, createView } from "./render.js"
 import { propsForChunk } from "./scenery.js"
 import { solidRadius } from "./route.js"
@@ -9,6 +9,8 @@ const canvas = document.querySelector("#view")
 const fallback = document.querySelector("#fallback")
 const menu = document.querySelector("#menu")
 const speed = document.querySelector("#speed")
+const gear = document.querySelector("#gear")
+const pace = document.querySelector("#pace")
 const back = document.querySelector("#back")
 
 const gl = canvas.getContext("webgl", { antialias: false })
@@ -41,11 +43,21 @@ if (!gl) {
     }
   }
 
+  function markDay() {
+    document.body.classList.toggle("is-day", session.day)
+  }
+
+  function showPace(meters, gearIndex) {
+    const marks = paceMarks(meters, gearIndex)
+    gear.textContent = marks.gear
+    pace.textContent = marks.pace
+  }
+
   function restartRun() {
     if (!session.playing) return
     run = restart(run)
     accumulator = 0
-    speed.textContent = paceText(run.car.speed, run.car.gear)
+    showPace(run.car.speed, run.car.gear)
   }
 
   function begin(index) {
@@ -57,10 +69,11 @@ if (!gl) {
     view.setField(place)
     view.setTime(session.day)
     view.setCar(session.car)
+    markDay()
     menu.hidden = true
     speed.hidden = false
     back.hidden = false
-    speed.textContent = paceText(run.car.speed, run.car.gear)
+    showPace(run.car.speed, run.car.gear)
   }
 
   function showMenu() {
@@ -69,6 +82,7 @@ if (!gl) {
     menu.hidden = false
     speed.hidden = true
     back.hidden = true
+    markDay()
   }
 
   function paint(dt) {
@@ -93,7 +107,7 @@ if (!gl) {
         first = false
         accumulator -= stepDt
       }
-      speed.textContent = paceText(run.car.speed, run.car.gear)
+      showPace(run.car.speed, run.car.gear)
     }
     paint(dt)
     requestAnimationFrame(frame)
@@ -112,6 +126,7 @@ if (!gl) {
     button.addEventListener("click", () => {
       session = selectTime(session, button.dataset.time === "day")
       markSelected("[data-time]", button)
+      markDay()
     })
   })
   menu.querySelectorAll("[data-car]").forEach((button) => {
