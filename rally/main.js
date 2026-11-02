@@ -1,4 +1,4 @@
-import { advanceClock, cardTime, clockText, initialSession, noteFinish, paceMarks, queueShift, selectCar, selectTime, startPlace, stopForMenu } from "./hud.js"
+import { advanceClock, cardTime, clockText, countMark, initialSession, noteFinish, paceMarks, queueShift, selectCar, selectTime, startPlace, stopForMenu } from "./hud.js"
 import { chunksAround, createView } from "./render.js"
 import { propsForChunk } from "./scenery.js"
 import { solidRadius } from "./route.js"
@@ -12,6 +12,7 @@ const speed = document.querySelector("#speed")
 const gear = document.querySelector("#gear")
 const pace = document.querySelector("#pace")
 const clock = document.querySelector("#clock")
+const call = document.querySelector("#call")
 const back = document.querySelector("#back")
 
 const gl = canvas.getContext("webgl", { antialias: false })
@@ -30,6 +31,7 @@ if (!gl) {
   let last = performance.now()
   let accumulator = 0
   let elapsed = 0
+  let count = 0
   let pendingShift = 0
 
   function input(useShift) {
@@ -59,6 +61,14 @@ if (!gl) {
     clock.textContent = clockText(seconds)
   }
 
+  function showCall(text) {
+    const on = text != null
+    call.hidden = !on
+    if (on) call.textContent = text
+    gear.hidden = on
+    pace.hidden = on
+  }
+
   function showCards() {
     menu.querySelectorAll("[data-place]").forEach((button) => {
       const mark = button.querySelector(".best")
@@ -71,8 +81,10 @@ if (!gl) {
     run = restart(run)
     accumulator = 0
     elapsed = 0
+    count = 0
     showPace(run.car.speed, run.car.gear)
     showClock(elapsed)
+    showCall(countMark(count))
   }
 
   function begin(index) {
@@ -82,6 +94,7 @@ if (!gl) {
     run = createRun(place)
     accumulator = 0
     elapsed = 0
+    count = 0
     view.setField(place)
     view.setTime(session.day)
     view.setCar(session.car)
@@ -91,6 +104,7 @@ if (!gl) {
     back.hidden = false
     showPace(run.car.speed, run.car.gear)
     showClock(elapsed)
+    showCall(countMark(count))
   }
 
   function showMenu() {
@@ -111,28 +125,35 @@ if (!gl) {
     const dt = Math.min(0.05, (now - last) / 1000)
     last = now
     if (session.playing) {
-      elapsed = advanceClock(elapsed, dt, run.finished)
-      accumulator += dt
-      const stepDt = 1 / 60
-      let first = true
-      const before = run.finished
-      while (accumulator >= stepDt) {
-        const solids = []
-        for (const index of chunksAround(run.car.z)) {
-          for (const prop of propsForChunk(run.field, index)) {
-            solids.push({ x: prop.x, z: prop.z, radius: solidRadius(prop.kind) })
+      if (countMark(count)) {
+        count += dt
+        showClock(0)
+        showCall(countMark(count))
+      } else {
+        elapsed = advanceClock(elapsed, dt, run.finished)
+        accumulator += dt
+        const stepDt = 1 / 60
+        let first = true
+        const before = run.finished
+        while (accumulator >= stepDt) {
+          const solids = []
+          for (const index of chunksAround(run.car.z)) {
+            for (const prop of propsForChunk(run.field, index)) {
+              solids.push({ x: prop.x, z: prop.z, radius: solidRadius(prop.kind) })
+            }
           }
+          run = step(run, input(first), stepDt, solids)
+          first = false
+          accumulator -= stepDt
         }
-        run = step(run, input(first), stepDt, solids)
-        first = false
-        accumulator -= stepDt
+        if (!before && run.finished) {
+          session = { ...session, best: noteFinish(session.best, session.placeIndex, elapsed) }
+          showCards()
+        }
+        showPace(run.car.speed, run.car.gear)
+        showClock(elapsed)
+        showCall(run.finished ? "Finish" : null)
       }
-      if (!before && run.finished) {
-        session = { ...session, best: noteFinish(session.best, session.placeIndex, elapsed) }
-        showCards()
-      }
-      showPace(run.car.speed, run.car.gear)
-      showClock(elapsed)
     }
     paint(dt)
     requestAnimationFrame(frame)

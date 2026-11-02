@@ -19,6 +19,13 @@ export function advanceClock(elapsed, dt, finished) {
   return elapsed + dt
 }
 
+export function countMark(seconds) {
+  if (seconds < 1) return "3"
+  if (seconds < 2) return "2"
+  if (seconds < 3) return "1"
+  return null
+}
+
 export function noteFinish(best, placeIndex, seconds) {
   const next = [best?.[0] ?? null, best?.[1] ?? null, best?.[2] ?? null]
   const index = Number(placeIndex)
