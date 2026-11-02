@@ -1,5 +1,10 @@
+export function paceMarks(speed, gear = 0) {
+  return { gear: String(gear + 1), pace: `${Math.round(speed * 3.6)} km/h` }
+}
+
 export function paceText(speed, gear = 0) {
-  return `${gear + 1} ${Math.round(speed * 3.6)} km/h`
+  const marks = paceMarks(speed, gear)
+  return `${marks.gear} ${marks.pace}`
 }
 
 export function queueShift(queued, code, repeat) {
