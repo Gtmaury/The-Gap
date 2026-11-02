@@ -70,7 +70,7 @@ body.is-day #back {
 }
 
 body.is-day #menu {
-  background: #a3c2e0;
+  background: linear-gradient(#a3c2e0, #d5e4f2);
   color: #1b1b1d;
 }
 
@@ -84,7 +84,8 @@ body.is-day .ridge {
 
 body.is-day .choices button.is-selected,
 body.is-day .cars button.is-selected {
-  box-shadow: inset 0 -3px 0 #1b1b1d;
+  background: #1b1b1d;
+  color: #f3ecdf;
 }
 
 #menu {
@@ -92,7 +93,7 @@ body.is-day .cars button.is-selected {
   z-index: 3;
   inset: 0;
   overflow: hidden;
-  background: #0d1018;
+  background: linear-gradient(#0d1018, #1b2433);
 }
 
 .moon {
@@ -155,7 +156,10 @@ body.is-day .cars button.is-selected {
 
 .choices button.is-selected,
 .cars button.is-selected {
-  box-shadow: inset 0 -3px 0 #f3ecdf;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: #f3ecdf;
+  color: #1b1b1d;
 }
 
 .cars button {
@@ -184,6 +188,7 @@ body.is-day .cars button.is-selected {
 
 .places {
   position: relative;
+  z-index: 2;
   display: flex;
   gap: 2rem;
   margin: 8vh 8vw 0;
@@ -206,12 +211,45 @@ body.is-day .cars button.is-selected {
   outline-offset: 6px;
 }
 
+body.is-day .places button:focus-visible {
+  outline-color: #1b1b1d;
+}
+
+.places button:hover .scene {
+  transform: translateY(-6px);
+}
+
 .scene {
   display: block;
   height: 11rem;
   margin-bottom: 1rem;
-  background: #243044;
+  border-radius: 12px;
+  overflow: hidden;
   position: relative;
+}
+
+.scene.snow {
+  background: linear-gradient(#1c2838, #c5d0dc);
+}
+
+.scene.forest {
+  background: linear-gradient(#0c1610, #1e3a24);
+}
+
+.scene.rock {
+  background: linear-gradient(#16161a, #3a3a40);
+}
+
+body.is-day .scene.snow {
+  background: linear-gradient(#9bb4c9, #eef3f7);
+}
+
+body.is-day .scene.forest {
+  background: linear-gradient(#4e7a5c, #d5e6d8);
+}
+
+body.is-day .scene.rock {
+  background: linear-gradient(#7a7a82, #d4d4d8);
 }
 
 .pine,
