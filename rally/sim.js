@@ -7,9 +7,10 @@ export const SNOW_GRIP = 0.65
 export const LATERAL_DECAY = 2.5
 export const SLOPE_GRAVITY = 9.8
 
-import { slide } from "./route.js"
+import { ROUTE_HALF, routeCenter, slide } from "./route.js"
 
 export const RIBBON_PERIOD = 180
+export const FINISH_Z = 360
 
 // Heading 0 faces +z. Steer above 0 is a left turn and increases heading.
 // forward = (-sin(heading), cos(heading)), so +x is to the right.
@@ -51,7 +52,18 @@ export function restart(run) {
   return createRun(run.field)
 }
 
+function held(run) {
+  return {
+    field: run.field,
+    finished: true,
+    car: { ...run.car, speed: 0, vx: 0, vz: 0 },
+  }
+}
+
 export function step(run, input, dt, solids = []) {
+  if (run.finished) return held(run)
+  const prevX = run.car.x
+  const prevZ = run.car.z
   const accelerate = Boolean(input.accelerate)
   const brake = Boolean(input.brake)
   const steer = Math.max(-1, Math.min(1, input.steer || 0))
@@ -96,10 +108,20 @@ export function step(run, input, dt, solids = []) {
   z = resolved.z
   vx = resolved.vx
   vz = resolved.vz
-  const speed = Math.hypot(vx, vz)
+  let finished = false
+  if (prevZ < FINISH_Z && z >= FINISH_Z) {
+    const crossX = prevX + ((x - prevX) * (FINISH_Z - prevZ)) / (z - prevZ)
+    if (Math.abs(crossX - routeCenter(FINISH_Z)) < ROUTE_HALF) finished = true
+  }
+  if (finished) {
+    vx = 0
+    vz = 0
+  }
+  const speed = finished ? 0 : Math.hypot(vx, vz)
 
   return {
     field: run.field,
+    finished,
     car: {
       x,
       z,

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { createRun, forward, terrainHeight } from "./sim.js"
+import { routeCenter } from "./route.js"
 import { propsForChunk } from "./scenery.js"
 import { field, places } from "./stages.js"
-import { buildCarLocal, buildScenery, carPoint, chunksAround, headlightAmount, lightFactor, pineMesh, projectCar, projectPoint, viewPose } from "./render.js"
+import { buildCarLocal, buildScenery, carPoint, chunksAround, finishGate, headlightAmount, lightFactor, pineMesh, projectCar, projectPoint, viewPose } from "./render.js"
 
 function inLowerHalf(car, aspect) {
   const ndc = projectCar(car, aspect)
@@ -191,3 +192,40 @@ for (let i = 6; i < rockMesh.length; i += 10) {
 }
 assert.equal(rockStone, true)
 assert.equal(rockCap, false)
+
+function gateSpan(place) {
+  const mesh = finishGate(place)
+  const cx = routeCenter(360)
+  let minX = Infinity
+  let maxX = -Infinity
+  const colors = new Set()
+  for (let i = 0; i < mesh.length; i += 10) {
+    const color = `${mesh[i + 6]},${mesh[i + 7]},${mesh[i + 8]}`
+    colors.add(color)
+    if (color === "0.86,0.22,0.18") {
+      minX = Math.min(minX, mesh[i])
+      maxX = Math.max(maxX, mesh[i])
+    }
+  }
+  return { colors, minX, maxX, cx }
+}
+
+for (const place of places) {
+  const gate = gateSpan(place)
+  assert.ok(gate.colors.has("0.12,0.12,0.14"))
+  assert.ok(gate.colors.has("0.86,0.22,0.18"))
+  assert.ok(gate.minX <= gate.cx - 7)
+  assert.ok(gate.maxX >= gate.cx + 7)
+  const span = place.maxZ - place.minZ
+  const index = Math.floor((360 - place.minZ) / span)
+  const chunk = buildScenery(place, index)
+  let posts = false
+  let beam = false
+  for (let i = 6; i < chunk.length; i += 10) {
+    const [r, g, b] = [chunk[i], chunk[i + 1], chunk[i + 2]]
+    if (Math.abs(r - 0.12) < 1e-5 && Math.abs(g - 0.12) < 1e-5 && Math.abs(b - 0.14) < 1e-5) posts = true
+    if (Math.abs(r - 0.86) < 1e-5 && Math.abs(g - 0.22) < 1e-5 && Math.abs(b - 0.18) < 1e-5) beam = true
+  }
+  assert.equal(posts, true)
+  assert.equal(beam, true)
+}

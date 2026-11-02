@@ -1,6 +1,6 @@
 import { coverForChunk, propsForChunk } from "./scenery.js"
 import { roadColor, routeCenter } from "./route.js"
-import { forward, gradeAlong, terrainHeight } from "./sim.js"
+import { FINISH_Z, forward, gradeAlong, terrainHeight } from "./sim.js"
 
 const VERTEX = `
 attribute vec3 aPos;
@@ -455,6 +455,22 @@ export function coverMesh(field, prop) {
   return data
 }
 
+const POST = [0.12, 0.12, 0.14]
+const BEAM = [0.86, 0.22, 0.18]
+
+export function finishGate(place) {
+  const data = []
+  const z = FINISH_Z
+  const cx = routeCenter(z)
+  const y = terrainHeight(place, cx, z)
+  const half = 7
+  const post = 0.35
+  addBox(data, [cx - half - post, y, z - post], [cx - half + post, y + 6, z + post], POST)
+  addBox(data, [cx + half - post, y, z - post], [cx + half + post, y + 6, z + post], POST)
+  addBox(data, [cx - half, y + 4.4, z - 0.22], [cx + half, y + 5.5, z + 0.22], BEAM)
+  return data
+}
+
 export function buildScenery(field, index) {
   const data = []
   for (const prop of propsForChunk(field, index)) {
@@ -462,6 +478,9 @@ export function buildScenery(field, index) {
     else addRock(data, prop.x, prop.z, field)
   }
   for (const prop of coverForChunk(field, index)) data.push(...coverMesh(field, prop))
+  const span = field.maxZ - field.minZ
+  const zBase = field.minZ + span * index
+  if (zBase <= FINISH_Z && FINISH_Z < zBase + span) data.push(...finishGate(field))
   return new Float32Array(data)
 }
 

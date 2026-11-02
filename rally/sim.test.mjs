@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { CAR_RADIUS, PINE_RADIUS, ROUTE_HALF, routeCenter } from "./route.js"
-import { GEAR_PULL, GEAR_TOP, RIBBON_PERIOD, YAW_RATE, createRun, forward, gradeAlong, restart, step, terrainHeight } from "./sim.js"
+import { FINISH_Z, GEAR_PULL, GEAR_TOP, RIBBON_PERIOD, YAW_RATE, createRun, forward, gradeAlong, restart, step, terrainHeight } from "./sim.js"
 import { field, places } from "./stages.js"
 
 const idle = { accelerate: false, brake: false, steer: 0 }
@@ -180,3 +180,30 @@ assert.equal(source.includes("localStorage"), false)
 assert.equal(source.includes("sessionStorage"), false)
 assert.equal(source.includes("onCourse"), false)
 assert.equal(source.includes("crossedFinish"), false)
+
+function approach(x) {
+  const run = createRun(flat)
+  run.car.x = x
+  run.car.z = FINISH_Z - 1
+  run.car.y = terrainHeight(flat, x, FINISH_Z - 1)
+  run.car.gear = 4
+  run.car.vz = 20.15
+  run.car.speed = 20.15
+  return step(run, idle, 0.1)
+}
+
+const onRoad = approach(2)
+assert.equal(onRoad.finished, true)
+assert.equal(onRoad.car.speed, 0)
+assert.ok(Math.abs(onRoad.car.z - 361) < 1e-6)
+assert.ok(Math.abs(onRoad.car.x - 2) < 1e-6)
+const stopped = step(onRoad, { accelerate: true, brake: false, steer: 1 }, 0.2)
+assert.equal(stopped.car.speed, 0)
+assert.equal(stopped.car.x, onRoad.car.x)
+assert.equal(stopped.car.z, onRoad.car.z)
+assert.equal(stopped.car.heading, onRoad.car.heading)
+
+const beside = approach(9)
+assert.equal(beside.finished, false)
+assert.ok(beside.car.speed > 0)
+assert.ok(beside.car.z > FINISH_Z)
