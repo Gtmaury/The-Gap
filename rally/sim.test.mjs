@@ -8,8 +8,8 @@ const idle = { accelerate: false, brake: false, steer: 0 }
 const gas = { accelerate: true, brake: false, steer: 0 }
 const brake = { accelerate: false, brake: true, steer: 0 }
 
-assert.deepEqual(GEAR_TOP, [8, 12, 16, 20, 24, 28, 32])
-assert.deepEqual(GEAR_PULL, [22, 18, 15, 12, 10, 8, 6])
+assert.deepEqual(GEAR_TOP, [12, 18, 24, 30, 36, 42, 48])
+assert.deepEqual(GEAR_PULL, [33, 27, 22, 18, 15, 12, 9])
 assert.equal(field.start.x, 0)
 assert.equal(field.start.z, 0)
 assert.equal(field.start.heading, 0)
@@ -146,23 +146,23 @@ assert.equal(hit.car.heading, blocked.car.heading)
 const flat = { ...field, id: "flat", heightAmp: 0, grip: 1 }
 const oneSecond = step(createRun(flat), gas, 1)
 assert.ok(oneSecond.car.speed > 0)
-assert.ok(oneSecond.car.speed <= 8, `flat ${oneSecond.car.speed}`)
+assert.ok(oneSecond.car.speed <= GEAR_TOP[0], `flat ${oneSecond.car.speed}`)
 assert.equal(oneSecond.car.gear, 0)
 
 let shifted = createRun(flat)
 shifted = step(shifted, { ...gas, shift: 1 }, 0)
 assert.equal(shifted.car.gear, 1)
-assert.equal(GEAR_TOP[shifted.car.gear], 12)
+assert.equal(GEAR_TOP[shifted.car.gear], 18)
 shifted = step(shifted, { ...gas, shift: 0 }, 0.1)
 assert.equal(shifted.car.gear, 1)
 
 let dropped = createRun(flat)
 dropped.car.gear = 1
-dropped.car.vz = 12
-dropped.car.speed = 12
+dropped.car.vz = 18
+dropped.car.speed = 18
 dropped = step(dropped, { ...idle, shift: -1 }, 0)
 assert.equal(dropped.car.gear, 0)
-assert.equal(dropped.car.speed, 8)
+assert.equal(dropped.car.speed, GEAR_TOP[0])
 
 const lowGear = step(createRun(flat), gas, 0.2)
 const highGear = createRun(flat)
