@@ -1,5 +1,5 @@
-export const GEAR_TOP = [8, 12, 16, 20, 24, 28, 32]
-export const GEAR_PULL = [22, 18, 15, 12, 10, 8, 6]
+export const GEAR_TOP = [12, 18, 24, 30, 36, 42, 48]
+export const GEAR_PULL = [33, 27, 22, 18, 15, 12, 9]
 export const BRAKE = 22
 export const DRAG = 1.5
 export const YAW_RATE = 2.6
