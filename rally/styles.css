@@ -53,6 +53,10 @@ canvas {
   font-size: 1.2rem;
 }
 
+#call {
+  font-size: 2.6rem;
+}
+
 #back {
   position: fixed;
   z-index: 2;
