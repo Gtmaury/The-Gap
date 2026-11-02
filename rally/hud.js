@@ -7,6 +7,32 @@ export function paceText(speed, gear = 0) {
   return `${marks.gear} ${marks.pace}`
 }
 
+export function clockText(seconds) {
+  const whole = Math.max(0, Math.floor(Number(seconds) || 0))
+  const minutes = Math.floor(whole / 60)
+  const remain = whole % 60
+  return `${minutes}:${String(remain).padStart(2, "0")}`
+}
+
+export function advanceClock(elapsed, dt, finished) {
+  if (finished) return elapsed
+  return elapsed + dt
+}
+
+export function noteFinish(best, placeIndex, seconds) {
+  const next = [best?.[0] ?? null, best?.[1] ?? null, best?.[2] ?? null]
+  const index = Number(placeIndex)
+  if (index < 0 || index > 2) return next
+  const current = next[index]
+  if (current == null || seconds < current) next[index] = seconds
+  return next
+}
+
+export function cardTime(best, placeIndex) {
+  const time = best?.[placeIndex]
+  return time == null ? "—" : clockText(time)
+}
+
 export function queueShift(queued, code, repeat) {
   if (repeat) return queued
   if (code === "ArrowUp") return 1
@@ -15,7 +41,7 @@ export function queueShift(queued, code, repeat) {
 }
 
 export function initialSession() {
-  return { playing: false, placeIndex: null, day: false, car: "hatch" }
+  return { playing: false, placeIndex: null, day: false, car: "hatch", best: [null, null, null] }
 }
 
 export function selectTime(session, day) {

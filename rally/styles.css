@@ -48,6 +48,11 @@ canvas {
   font-size: 2.6rem;
 }
 
+#clock {
+  margin-left: 0.8rem;
+  font-size: 1.2rem;
+}
+
 #back {
   position: fixed;
   z-index: 2;
@@ -191,7 +196,7 @@ body.is-day .cars button.is-selected {
   z-index: 2;
   display: flex;
   gap: 2rem;
-  margin: 8vh 8vw 0;
+  margin: 4vh 8vw 2rem;
 }
 
 .places button {
@@ -217,6 +222,12 @@ body.is-day .places button:focus-visible {
 
 .places button:hover .scene {
   transform: translateY(-6px);
+}
+
+.best {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 0.9rem;
 }
 
 .scene {
